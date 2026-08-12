@@ -2,7 +2,7 @@
 // @name         HV装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.0.1
+// @version      1.0.2
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -505,12 +505,12 @@ function showToast(message, type = "") {
       compact.includes('反抵抗率') || compact.includes('反抵抗') ||
       compact.toLowerCase().includes('penetrator');
     if (!isCounterResist) return 0;
-    if (/(?:greater|major|large|\(\s*g\s*\)|\uFF08\s*大(?:型)?\s*\uFF09|大型|大护符)/i.test(text) ||
-      /(?:greater|major|large|大(?:型)?)/i.test(compact)) {
+    if (/(?:greater|major|large|高级|\(\s*g\s*\)|\uFF08\s*大(?:型)?\s*\uFF09|大型|大护符)/i.test(text) ||
+      /(?:greater|major|large|高级|大(?:型)?)/i.test(compact)) {
       return COUNTER_RESIST_CHARM_BONUS.greater;
     }
-    if (/(?:lesser|minor|small|\(\s*l\s*\)|\uFF08\s*小(?:型)?\s*\uFF09|小型|小护符)/i.test(text) ||
-      /(?:lesser|minor|small|小(?:型)?)/i.test(compact)) {
+    if (/(?:lesser|minor|small|次级|低级|\(\s*l\s*\)|\uFF08\s*小(?:型)?\s*\uFF09|小型|小护符)/i.test(text) ||
+      /(?:lesser|minor|small|次级|低级|小(?:型)?)/i.test(compact)) {
       return COUNTER_RESIST_CHARM_BONUS.lesser;
     }
     return 0;
@@ -622,6 +622,17 @@ function showToast(message, type = "") {
     }),
   });
 
+  const CHARM_NAME_ALIASES = Object.freeze({
+    archmage: ['法伤'],
+    economizer: ['节能', '魔力消耗削减'],
+    spellweaver: ['施法加速'],
+    annihilator: ['法暴伤', '魔法暴击'],
+    penetrator: ['反抵抗'],
+    aether: ['以太'],
+    juggernaut: ['生命'],
+    capacitor: ['魔力'],
+  });
+
   const CHARM_SLOT_KEY_BY_ID = Object.freeze({
     1: 'main',
     2: 'off',
@@ -719,15 +730,18 @@ function showToast(message, type = "") {
     if (!compact || /empty|unused|空/.test(compact)) return null;
     let type = null;
     for (const [key, def] of Object.entries(CHARM_DEFS)) {
-      if (compact.includes(key) || compact.includes(String(def.label || '').toLowerCase())) {
+      const aliases = CHARM_NAME_ALIASES[key] || [];
+      if (compact.includes(key) ||
+        compact.includes(String(def.label || '').toLowerCase()) ||
+        aliases.some(alias => compact.includes(alias))) {
         type = key;
         break;
       }
     }
     if (!type) return null;
     let size = null;
-    if (/(greater|major|large|大型|大)/.test(compact)) size = 'greater';
-    else if (/(lesser|minor|small|小型|小)/.test(compact)) size = 'lesser';
+    if (/(greater|major|large|高级|大型|大)/.test(compact)) size = 'greater';
+    else if (/(lesser|minor|small|次级|低级|小型|小)/.test(compact)) size = 'lesser';
     if (!size) return null;
     return { type, size };
   }
@@ -769,6 +783,7 @@ function showToast(message, type = "") {
 
   const CHARM_INFO_AJAX_INTERVAL = 300;
   const CHARM_INFO_AJAX_MAX = 4;
+  const CHARM_INFO_REQUEST_TIMEOUT = 20000;
   const CHARM_INFO_AJAX_QUEUE = [];
   let charmInfoAjaxActive = 0;
   let charmInfoAjaxLastStart = 0;
@@ -893,6 +908,25 @@ function showToast(message, type = "") {
         }
     } catch (e) {}
 
+    function persistCharmInfoCache() {
+        if (typeof GM_setValue !== 'function') return;
+        try {
+            GM_setValue(
+                CHARM_INFO_STORAGE_KEY,
+                JSON.stringify(
+                    Object.fromEntries(
+                        Array.from(CHARM_INFO_CACHE.entries())
+                            .filter(([, info]) => Array.isArray(info))
+                            .map(([eid, info]) => [String(eid), {
+                                at: Number(CHARM_INFO_CACHE_AT.get(Number(eid))) || Date.now(),
+                                charms: info.map(charm => ({ type: charm.type, size: charm.size })),
+                            }])
+                    )
+                )
+            );
+        } catch (e) {}
+    }
+
     function requestEquipmentCharmInfo(eid, onComplete, force) {
         const equipmentId = Number(eid);
         if (!equipmentId) {
@@ -915,11 +949,37 @@ function showToast(message, type = "") {
         if (typeof onComplete === 'function') {
             const existing = CHARM_INFO_REQUESTS.get(equipmentId);
             if (existing) {
-                existing.push(onComplete);
-                return;
+                if (!force) {
+                    existing.callbacks.push(onComplete);
+                    return;
+                }
+                existing.superseded = true;
+                const callbacks = Array.isArray(existing.callbacks)
+                    ? existing.callbacks.splice(0)
+                    : [];
+                callbacks.forEach(callback => {
+                    try {
+                        callback(null);
+                    } catch (e) {}
+                });
+                const abortExisting = existing.transportAbort || existing.xhr?.abort;
+                if (typeof abortExisting === 'function') {
+                    try {
+                        abortExisting.call(existing.xhr);
+                    } catch (e) {}
+                }
+                if (CHARM_INFO_REQUESTS.get(equipmentId) === existing) {
+                    CHARM_INFO_REQUESTS.delete(equipmentId);
+                }
             }
         }
-        const request = { callbacks: typeof onComplete === 'function' ? [onComplete] : [] };
+        const request = {
+            callbacks: typeof onComplete === 'function' ? [onComplete] : [],
+            superseded: false,
+            xhr: null,
+            transportAbort: null,
+            timeoutTimer: null,
+        };
         CHARM_INFO_REQUESTS.set(equipmentId, request);
         CHARM_INFO_STATUS.set(equipmentId, 'pending');
         const charmInfoUrl = new URL(
@@ -931,6 +991,17 @@ function showToast(message, type = "") {
         const finish = (info, cacheResult = true, resultStatus = 'success') => {
             if (settled) return;
             settled = true;
+            if (typeof request.releaseOnce === 'function') {
+                const releaseFn = request.releaseOnce;
+                request.releaseOnce = null;
+                try {
+                    releaseFn();
+                } catch (e) {}
+            }
+            if (request.timeoutTimer !== null) {
+                window.clearTimeout(request.timeoutTimer);
+                request.timeoutTimer = null;
+            }
             const parsedInfo = Array.isArray(info)
                 ? info
                     .map(charm => charm && CHARM_DEFS[charm.type] &&
@@ -947,20 +1018,21 @@ function showToast(message, type = "") {
                     uniqueInfo.push(charm);
                 }
             });
-            if (cacheResult) {
+            const isCurrentRequest = CHARM_INFO_REQUESTS.get(equipmentId) === request;
+            if (cacheResult && isCurrentRequest && !request.superseded) {
                 CHARM_INFO_CACHE.set(equipmentId, uniqueInfo);
                 CHARM_INFO_CACHE_AT.set(equipmentId, Date.now());
                 CHARM_INFO_STATUS.set(equipmentId, resultStatus || 'success');
                 CHARM_INFO_RETRY_AT.delete(equipmentId);
                 invalidateEquipmentDataCache();
                 persistCharmInfoCache();
-            } else {
+            } else if (isCurrentRequest && !request.superseded) {
                 CHARM_INFO_CACHE.delete(equipmentId);
                 CHARM_INFO_STATUS.set(equipmentId, 'error');
                 CHARM_INFO_RETRY_AT.set(equipmentId, Date.now() + 5000);
                 invalidateEquipmentDataCache();
             }
-            CHARM_INFO_REQUESTS.delete(equipmentId);
+            if (isCurrentRequest) CHARM_INFO_REQUESTS.delete(equipmentId);
             const callbacks = request.callbacks.slice();
             request.callbacks.length = 0;
             callbacks.forEach(callback => {
@@ -978,52 +1050,250 @@ function showToast(message, type = "") {
                     released = true;
                     release();
                 };
+                request.releaseOnce = releaseOnce;
+                if (request.superseded) {
+                    releaseOnce();
+                    finish(null, false);
+                    return;
+                }
                 attempts++;
-                try {
-                    GM_xmlhttpRequest({
-                        method: 'GET',
-                        url: charmInfoUrl,
-                        onload: response => {
-                            const responseText = String(response?.responseText || '');
+                const retry = () => {
+                    releaseOnce();
+                    if (settled || request.superseded) return;
+                    if (attempts < 3) window.setTimeout(enqueue, 1000);
+                    else finish(null, false);
+                };
+                const handleCharmNames = (status, names, hasCharmPage) => {
+                    if (settled || request.superseded) {
+                        releaseOnce();
+                        return;
+                    }
+                    if (status !== 200 || !hasCharmPage) {
+                        nextTransport();
+                        return;
+                    }
+                    releaseOnce();
+                    const info = [];
+                    const seenTypes = new Set();
+                    for (const name of Array.isArray(names) ? names : []) {
+                        const parsed = parseCharmNameToInfo(name);
+                        if (parsed && !seenTypes.has(parsed.type)) {
+                            seenTypes.add(parsed.type);
+                            info.push(parsed);
+                        }
+                    }
+                    finish(info, true, info && info.length ? 'success' : 'empty');
+                };
+                const pageWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : null;
+                const pageDocument = pageWindow?.document || document;
+                const pageXHR = pageWindow && typeof pageWindow.XMLHttpRequest === 'function'
+                    ? pageWindow.XMLHttpRequest
+                    : null;
+                let transportIndex = 0;
+                let pageBridgeAttempts = 0;
+                let pageXHRAttempts = 0;
+                let iframeAttempts = 0;
+                const transports = [];
+                const nextTransport = () => {
+                    if (settled || request.superseded) {
+                        releaseOnce();
+                        return;
+                    }
+                    while (transportIndex < transports.length) {
+                        const started = transports[transportIndex++]();
+                        if (started) return;
+                    }
+                    retry();
+                };
+                const requestWithPageBridge = () => {
+                    if (settled || request.superseded || pageBridgeAttempts >= 1) return false;
+                    if (!pageDocument?.documentElement) return false;
+                    pageBridgeAttempts++;
+                    const token = `hv-charm-${equipmentId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                    const messageTarget = pageWindow || window;
+                    let timer = null;
+                    let cleaned = false;
+                    let script = null;
+                    const cleanup = () => {
+                        if (cleaned) return;
+                        cleaned = true;
+                        if (timer !== null) window.clearTimeout(timer);
+                        try {
+                            messageTarget.removeEventListener('message', onMessage, true);
+                        } catch (e) {}
+                        if (script) {
+                            try {
+                                script.remove();
+                            } catch (e) {
+                                try {
+                                    script.parentNode?.removeChild(script);
+                                } catch (e2) {}
+                            }
+                        }
+                    };
+                    const fallback = () => {
+                        cleanup();
+                        nextTransport();
+                    };
+                    const onMessage = event => {
+                        const data = event?.data;
+                        if (!data || data.type !== 'HV_CHARM_INFO_RESULT' || data.token !== token) return;
+                        cleanup();
+                        if (data.locked) {
+                            retry();
+                            return;
+                        }
+                        handleCharmNames(Number(data.status), data.names, Boolean(data.hasCharmPage));
+                    };
+                    script = pageDocument.createElement('script');
+                    const serializedUrl = JSON.stringify(charmInfoUrl);
+                    const serializedToken = JSON.stringify(token);
+                    script.textContent = `(()=>{
+                        const token=${serializedToken};
+                        const send=(payload)=>window.postMessage({type:'HV_CHARM_INFO_RESULT',token,...payload},'*');
+                        try{
+                            const xhr=new XMLHttpRequest();
+                            xhr.open('GET',${serializedUrl},true);
+                            xhr.withCredentials=true;
+                            xhr.timeout=10000;
+                            xhr.onload=()=>{
+                                try{
+                                    const html=String(xhr.responseText||'');
+                                    const locked=/state lock limiter in effect/i.test(html);
+                                    const doc=new DOMParser().parseFromString(html,'text/html');
+                                    const nodes=Array.from(doc.querySelectorAll('.eqcharm th'));
+                                    const containers=Array.from(doc.querySelectorAll('.eqcharm, .chm'));
+                                    const names=nodes.length?nodes.map(node=>String(node.textContent||'').trim()):containers.map(node=>String(node.textContent||'').trim());
+                                    send({status:xhr.status,names,locked,hasCharmPage:Boolean(doc.querySelector('.eqcharm'))});
+                                }catch(error){send({status:xhr.status,names:[],locked:false,hasCharmPage:false});}
+                            };
+                            xhr.onerror=()=>send({status:0,names:[],locked:false,hasCharmPage:false});
+                            xhr.ontimeout=()=>send({status:0,names:[],locked:false,hasCharmPage:false});
+                            xhr.send();
+                        }catch(error){send({status:0,names:[],locked:false,hasCharmPage:false});}
+                    })();`;
+                    messageTarget.addEventListener('message', onMessage, true);
+                    pageDocument.documentElement.appendChild(script);
+                    timer = window.setTimeout(fallback, 6000);
+                    request.transportAbort = cleanup;
+                    return true;
+                };
+                const requestWithPageXHR = () => {
+                    if (settled || request.superseded || !pageXHR || pageXHRAttempts >= 2) return false;
+                    pageXHRAttempts++;
+                    let xhr = null;
+                    try {
+                        xhr = new pageXHR();
+                        xhr.open('GET', charmInfoUrl, true);
+                        xhr.withCredentials = true;
+                        xhr.onload = () => {
+                            if (settled || request.superseded) return;
+                            const responseText = String(xhr.responseText || '');
                             if (/state lock limiter in effect/i.test(responseText)) {
-                                releaseOnce();
-                                if (attempts < 3) window.setTimeout(enqueue, 1000);
-                                else finish(null, false);
+                                nextTransport();
                                 return;
                             }
-                            releaseOnce();
-                            if (response?.status === 200) {
+                            if (xhr.status === 200) {
                                 try {
                                     const doc = new DOMParser().parseFromString(responseText, 'text/html');
-                                    if (doc.querySelector('.eqcharm')) {
+                                    if (doc.querySelector('.eqcharm, .chm')) {
                                         const info = getEquipmentCharmInfoFromDoc(doc);
+                                        releaseOnce();
                                         finish(info, true, info && info.length ? 'success' : 'empty');
                                         return;
                                     }
                                 } catch (e) {}
                             }
-                            if (attempts < 3) window.setTimeout(enqueue, 1000);
-                            else finish(null, false);
-                        },
-                        onerror: () => {
-                            releaseOnce();
-                            if (attempts < 3) window.setTimeout(enqueue, 1000);
-                            else finish(null, false);
-                        },
-                        ontimeout: () => {
-                            releaseOnce();
-                            if (attempts < 3) window.setTimeout(enqueue, 1000);
-                            else finish(null, false);
-                        },
-                        timeout: 10000,
-                    });
-                } catch (e) {
-                    releaseOnce();
-                    if (attempts < 3) window.setTimeout(enqueue, 1000);
-                    else finish(null, false);
-                }
+                            nextTransport();
+                        };
+                        xhr.onerror = () => nextTransport();
+                        xhr.ontimeout = () => nextTransport();
+                        xhr.onabort = () => {
+                            if (request.superseded || settled) {
+                                releaseOnce();
+                                return;
+                            }
+                            nextTransport();
+                        };
+                        xhr.timeout = 6000;
+                        xhr.send();
+                        request.transportAbort = () => {
+                            try {
+                                xhr.abort();
+                            } catch (e) {}
+                        };
+                        return true;
+                    } catch (e) {
+                        return false;
+                    }
+                };
+                const requestWithIframe = () => {
+                    if (settled || request.superseded || iframeAttempts >= 1) return false;
+                    if (!pageDocument?.body) return false;
+                    iframeAttempts++;
+                    const frame = pageDocument.createElement('iframe');
+                    frame.setAttribute('aria-hidden', 'true');
+                    frame.style.cssText = 'display:none !important; width:0; height:0; border:0;';
+                    let timer = null;
+                    let poller = null;
+                    let cleaned = false;
+                    const cleanup = () => {
+                        if (cleaned) return;
+                        cleaned = true;
+                        if (timer !== null) window.clearTimeout(timer);
+                        if (poller !== null) window.clearInterval(poller);
+                        frame.remove();
+                    };
+                    const fallback = () => {
+                        cleanup();
+                        nextTransport();
+                    };
+                    const inspect = () => {
+                        if (settled || request.superseded || cleaned) return;
+                        let doc = null;
+                        try {
+                            doc = frame.contentDocument;
+                        } catch (e) {
+                            return;
+                        }
+                        if (!doc) return;
+                        const bodyText = String(doc.body?.textContent || '');
+                        if (/state lock limiter in effect/i.test(bodyText)) {
+                            cleanup();
+                            retry();
+                            return;
+                        }
+                        if (!doc.querySelector('.eqcharm, .chm')) return;
+                        const info = getEquipmentCharmInfoFromDoc(doc);
+                        cleanup();
+                        finish(info, true, info && info.length ? 'success' : 'empty');
+                    };
+                    frame.addEventListener('load', inspect, { once: true });
+                    frame.addEventListener('error', fallback, { once: true });
+                    pageDocument.body.appendChild(frame);
+                    frame.src = charmInfoUrl;
+                    poller = window.setInterval(inspect, 200);
+                    timer = window.setTimeout(fallback, 6000);
+                    request.transportAbort = cleanup;
+                    return true;
+                };
+                transports.push(
+                    requestWithPageBridge,
+                    requestWithPageXHR,
+                    requestWithIframe,
+                );
+                nextTransport();
             });
-        };
+        };        request.timeoutTimer = window.setTimeout(() => {
+            if (settled) return;
+            const abortRequest = request.transportAbort || request.xhr?.abort;
+            if (typeof abortRequest === 'function') {
+                try {
+                    abortRequest.call(request.xhr);
+                } catch (e) {}
+            }
+            finish(null, false);
+        }, CHARM_INFO_REQUEST_TIMEOUT);
         enqueue();
     }
 
@@ -1049,6 +1319,11 @@ function showToast(message, type = "") {
             );
         });
         const results = await Promise.all(pending);
+        if (force && results.some(({ slot }) =>
+            CHARM_INFO_STATUS.get(Number(slot?.eid)) === 'error'
+        )) {
+            throw new Error('读取护符超时或失败');
+        }
         invalidateEquipmentDataCache();
         let charmInfoCacheChanged = false;
         results.forEach(({ slot, info }) => {
@@ -2964,7 +3239,11 @@ function showToast(message, type = "") {
       refreshCharmBtn.value = '刷新中…';
       try {
         if (charmSimulation && typeof charmSimulation.close === 'function') charmSimulation.close();
-        await waitForEquipmentCharmData(equipSlots, true);
+        const refreshPromise = waitForEquipmentCharmData(equipSlots, true);
+        const refreshTimeout = new Promise((_, reject) => {
+          window.setTimeout(() => reject(new Error('读取护符超时')), CHARM_INFO_REQUEST_TIMEOUT);
+        });
+        await Promise.race([refreshPromise, refreshTimeout]);
         if (charmSimulation && typeof charmSimulation.refresh === 'function') charmSimulation.refresh();
         showToast('护符缓存已刷新。', 'ok');
       } catch (error) {
@@ -5396,17 +5675,27 @@ function showToast(message, type = "") {
     '⑨智爵士',
     '今日运势 大吉',
     '🍜*1000',
+    '我会一直看着你👁️',
+    '爱丽丝爱丽丝爱丽・ｿ關ｽ蜈･逋ｽ蜈皮噪豢樒ｩｴ荵倶ｸｭ',
     '⑨月⑨日忆擅冻兄弟',
     'バカバカバカバカバカバカバカバカ',
     'SAY YA~SAY YA~SAY YA~',
+    '・・ ・ー・・ ーーー ・・・ー ・ ー・ーー ーーー ・・ー',
     '世界平和何で噓だ、皆独りぼっちだ',
     '私たちの未来へ、祝福を込めて',
     'I↓ must↑ be→ the↓ reason↑ why→',
+    'あ あ↗あ↘あ↗あ↘君は、変わったあああああああああああ',
+    'Daphne Ficus Iris Maackia Lythrum Myrica Sabia flos ',
     'Tell Me👏 Tell Me👏鏡👏よ鏡👏一番👏好きな👏私👏👏になるの👏👏',
+    '君に伝えたいことが、君に届けたいことが',
+    '🍋🍈🍪🍋🍈🍪🍋🍈🍋🍈🍪🍋🍈🍪🍪',
+    'いますぐ輪廻',
+    'INTERNET OVERDOSE',
+    'INTERNET YAMERO',
     'From a Place of Love',
     'DokiDoki WakuWaku',
     'KiraKira DokiDoki',
-    'HAPPY LUCKY ★SMILE YEAH',
+    'HAPPY LUCKY ⭐ SMILE YEAH！ ',
     'popipa！pipopa！popipapapipopa！',
     'U咩瓦帕瓦！',
     'Ciallo ～(∠・ω< )⌒☆！',
