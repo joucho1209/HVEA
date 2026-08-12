@@ -2,7 +2,7 @@
 // @name         HV装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.0.2
+// @version      1.0.4
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -3671,6 +3671,7 @@ function showToast(message, type = "") {
     const isIsekai = location.pathname.startsWith('/isekai/') || location.href.includes('/isekai/');
     const WORLD_NAME = isIsekai ? '异世界' : '主世界';
     const STORE_KEY = 'hv_equip_upgrade_planner_v2_' + (isIsekai ? 'isekai' : 'main');
+    const PRICE_STORAGE_KEY = isIsekai ? 'hvuti_prices' : 'hvut_prices';
     const QUALITY_ORDER = ['上等', '优良', '史诗', '传奇', '无双', '至尊'];
     const MATERIAL_TYPE_MAP = { '布料': 'Cloth', '皮革': 'Leather', '金属': 'Metals', '木材': 'Wood' };
     const RARE_MATERIAL_OPTIONS = {
@@ -3829,19 +3830,19 @@ function showToast(message, type = "") {
     function readHvUtilsPrices() {
       try {
         if (typeof GM_getValue === 'function') {
-          const value = parseStoredJson(GM_getValue('hvut_prices', null));
+          const value = parseStoredJson(GM_getValue(PRICE_STORAGE_KEY, null));
           if (isPlainObject(value)) return value;
         }
       } catch (e) {}
       try {
-        const value = parseStoredJson(localStorage.getItem('hvut_prices'));
+        const value = parseStoredJson(localStorage.getItem(PRICE_STORAGE_KEY));
         return isPlainObject(value) ? value : {};
       } catch (e) { return {}; }
     }
     function writeHvUtilsPrices(patch) {
       const prices = Object.assign({}, readHvUtilsPrices(), patch);
-      try { if (typeof GM_setValue === 'function') GM_setValue('hvut_prices', prices); } catch (e) {}
-      try { localStorage.setItem('hvut_prices', JSON.stringify(prices)); } catch (e) {}
+      try { if (typeof GM_setValue === 'function') GM_setValue(PRICE_STORAGE_KEY, prices); } catch (e) {}
+      try { localStorage.setItem(PRICE_STORAGE_KEY, JSON.stringify(prices)); } catch (e) {}
     }
     function parseNum(text) {
       const match = String(text || '').replace(/,/g, '').match(/-?\d+(?:\.\d+)?/);
