@@ -2,7 +2,7 @@
 // @name         HV装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.0.4
+// @version      1.0.6
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -2079,22 +2079,13 @@ function showToast(message, type = "") {
         let total = 0;
         for (const stat of counterStats) {
             let value;
-            if (charmBonus > 0 && stat?.source !== 'charm') {
-                const split = splitCounterResistCharmValue(stat, charmBonus);
-                if (split.charmOnly) {
-                    inlineCharm = true;
-                    value = hasSeparateCharmStat ? 0 : charmBonus;
-                } else if (split.includesCharm) {
-                    const normalizedStat = {
-                        ...stat,
-                        val: split.equipmentValue,
-                        baseValue: undefined,
-                    };
-                    value = getCounterResistStatValue(normalizedStat, initialLevel, currentLevel);
-                } else {
-                    value = getCounterResistStatValue(stat, initialLevel, currentLevel);
-                }
+            if (stat?.source === 'charm') {
+                // 护符加成行：不随强化缩放，直接取护符加成值
+                inlineCharm = true;
+                value = getCounterResistStatValue(stat, initialLevel, currentLevel);
             } else {
+                // 装备属性行：normalizeCounterResistCharmData 已把含护符的合并值拆分，
+                // 这里的值就是纯装备 CR，直接取值，不再二次拆分
                 value = getCounterResistStatValue(stat, initialLevel, currentLevel);
             }
 
@@ -5676,8 +5667,9 @@ function showToast(message, type = "") {
     '⑨智爵士',
     '今日运势 大吉',
     '🍜*1000',
-    '我会一直看着你👁️',
+    '我 一会 直看着你…👁️👁️👁️',
     '爱丽丝爱丽丝爱丽・ｿ關ｽ蜈･逋ｽ蜈皮噪豢樒ｩｴ荵倶ｸｭ',
+    '一股强劲的音乐响起，好像是一首很老的歌...',
     '⑨月⑨日忆擅冻兄弟',
     'バカバカバカバカバカバカバカバカ',
     'SAY YA~SAY YA~SAY YA~',
@@ -5685,10 +5677,13 @@ function showToast(message, type = "") {
     '世界平和何で噓だ、皆独りぼっちだ',
     '私たちの未来へ、祝福を込めて',
     'I↓ must↑ be→ the↓ reason↑ why→',
+    'Here↑we↓go→another↑lap↓',
+    '秘密の数字目指して   ①．②．⑨！',
     'あ あ↗あ↘あ↗あ↘君は、変わったあああああああああああ',
-    'Daphne Ficus Iris Maackia Lythrum Myrica Sabia flos ',
+    'Daphne Ficus Iris Maackia Lythrum Myrica Sabia flos...',
     'Tell Me👏 Tell Me👏鏡👏よ鏡👏一番👏好きな👏私👏👏になるの👏👏',
     '君に伝えたいことが、君に届けたいことが',
+    'What is love? Baby, don\'t hurt me Don\'t hurt me no more',
     '🍋🍈🍪🍋🍈🍪🍋🍈🍋🍈🍪🍋🍈🍪🍪',
     'いますぐ輪廻',
     'INTERNET OVERDOSE',
@@ -5710,6 +5705,7 @@ function showToast(message, type = "") {
     '404 Not Found',
     '也去试试HV Monster Manager吧',
     '啊？群友都没出过对名P吗？',
+    '拍卖场上无父子，干就完了！',
     '警钟长鸣 单价1.2M买入19个秘银袋转手单价1.4M卖',
     '太合适了朋友，感觉这么好的装备就是为你准备的',
   ]);
@@ -5726,7 +5722,7 @@ function showToast(message, type = "") {
       'position: absolute',
       'left: 4px',
       'bottom: 4px',
-      'z-index: 99999',
+      'z-index: 1',
       'font: 9pt Verdana, sans-serif',
       'color: #5C0D11',
       'opacity: 0.8',
