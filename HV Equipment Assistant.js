@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         HV装备助手
+// @name         HV 装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.0.6
+// @version      1.0.7
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -1473,7 +1473,7 @@ function showToast(message, type = "") {
                 val: value,
                 rate: regexDamage.test(name) ? 2 : 1,
                 section,
-                scalesWithUpgrade: !isCharmNode && (Boolean(baseMatch) || section === 'proficiency'),
+                scalesWithUpgrade: !isCharmNode && (Boolean(baseMatch) || section === 'proficiency' || section === 'spell'),
                 source: isCharmNode ? 'charm' : 'equipment',
             });
         }
