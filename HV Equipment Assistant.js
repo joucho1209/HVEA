@@ -2,7 +2,7 @@
 // @name         HV 装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.0.8
+// @version      1.1.0
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -2406,16 +2406,38 @@ function showToast(message, type = "") {
         return String(mainhand && mainhand.weaponType || '').toLowerCase().includes('staff');
     }
 
+    const MAGE_ELEMENT_KEYS = ['fire', 'cold', 'elec', 'wind', 'holy', 'dark'];
+    function getEquipmentHighestElementSpellDamage() {
+        const totals = { fire: 0, cold: 0, elec: 0, wind: 0, holy: 0, dark: 0 };
+        const slots = getEquipmentData();
+        if (!Array.isArray(slots)) return 0;
+        for (const slot of slots) {
+            if (!slot || slot.available === false) continue;
+            const stats = slot.stats;
+            if (!Array.isArray(stats)) continue;
+            for (const stat of stats) {
+                if (!stat || stat.section !== 'spell') continue;
+                const key = MAGE_ELEMENT_KEYS.find(k => String(stat.title || '').toLowerCase() === k);
+                if (!key) continue;
+                const v = Number(stat.val);
+                if (Number.isFinite(v)) totals[key] += v;
+            }
+        }
+        let max = 0;
+        for (const key of MAGE_ELEMENT_KEYS) {
+            if (totals[key] > max) max = totals[key];
+        }
+        return max;
+    }
+
     function isMageBuild() {
         if (isMainhandStaff()) return true;
-        const element = findHighestElementAffinity();
-        return element !== null && element.value >= 150;
+        return getEquipmentHighestElementSpellDamage() >= 150;
     }
 
     let gCharBaseProf = null;
-    let gCharBaseProfAt = 0;
-    let gCharBaseProfRequest = null;
-    const CHAR_BASE_PROF_TTL = 30 * 1000;
+    const CHAR_BASE_PROF_STORAGE_KEY = 'HVEA_char_base_prof';
+    const CHAR_BASE_PROF_STORAGE_TTL = 12 * 60 * 60 * 1000;
 
     function round1Prof(value) {
         const n = Number(value);
@@ -2472,44 +2494,94 @@ function showToast(message, type = "") {
         }
         return null;
     }
-    function fetchCharBaseProf(force) {
-        if (!force && gCharBaseProf !== null && Date.now() - gCharBaseProfAt < CHAR_BASE_PROF_TTL) {
-            return Promise.resolve(gCharBaseProf);
-        }
-        if (gCharBaseProfRequest) return gCharBaseProfRequest;
-        const element = findHighestElementAffinity();
-        let profKey = 'elemental';
-        if (element) {
-            if (/holy/i.test(element.name)) profKey = 'divine';
-            else if (/dark|forbidden/i.test(element.name)) profKey = 'forbidden';
-        }
-        const baseUrl = location.origin + location.pathname;
-        const request = new Promise(resolve => {
-            GM_xmlhttpRequest({
-                method: 'GET',
-                url: `${baseUrl}?s=Character&ss=ch`,
-                timeout: 10000,
-                onload(response) {
-                    if (response.status === 200) {
-                        try {
-                            const doc = new DOMParser().parseFromString(response.responseText, 'text/html');
-                            const value = parseCharProfValue(doc, profKey);
-                            if (value !== null) {
-                                gCharBaseProf = value;
-                                gCharBaseProfAt = Date.now();
-                            }
-                        } catch (error) { /* ignore */ }
+
+    function readStoredBaseProf() {
+        try {
+            let raw = typeof GM_getValue === 'function' ? GM_getValue(CHAR_BASE_PROF_STORAGE_KEY, null) : null;
+            if (raw === null && typeof localStorage !== 'undefined') raw = localStorage.getItem(CHAR_BASE_PROF_STORAGE_KEY);
+            const parsed = raw ? JSON.parse(raw) : null;
+            if (parsed && parsed.timestamp && Date.now() - parsed.timestamp < CHAR_BASE_PROF_STORAGE_TTL) {
+                const out = { elemental: null, divine: null, forbidden: null };
+                for (const key of ['elemental', 'divine', 'forbidden']) {
+                    if (Number.isFinite(parsed[key])) out[key] = parsed[key];
+                }
+                if (out.elemental !== null || out.divine !== null || out.forbidden !== null) return out;
+            }
+        } catch (error) { /* ignore */ }
+        return null;
+    }
+    function writeStoredBaseProf(map) {
+        try {
+            const prev = readStoredBaseProf() || {};
+            const payload = { timestamp: Date.now() };
+            for (const key of ['elemental', 'divine', 'forbidden']) {
+                const value = Number.isFinite(map[key]) ? map[key] : (Number.isFinite(prev[key]) ? prev[key] : null);
+                if (value !== null) payload[key] = value;
+            }
+            const data = JSON.stringify(payload);
+            if (typeof GM_setValue === 'function') GM_setValue(CHAR_BASE_PROF_STORAGE_KEY, data);
+            else if (typeof localStorage !== 'undefined') localStorage.setItem(CHAR_BASE_PROF_STORAGE_KEY, data);
+        } catch (error) { /* ignore */ }
+    }
+    function parseCharProfMap(doc) {
+        return {
+            elemental: parseCharProfValue(doc, 'elemental'),
+            divine: parseCharProfValue(doc, 'divine'),
+            forbidden: parseCharProfValue(doc, 'forbidden'),
+        };
+    }
+    function equipmentProfKey() {
+        try {
+            const totals = { fire: 0, cold: 0, elec: 0, wind: 0, holy: 0, dark: 0 };
+            const slots = getEquipmentData();
+            if (Array.isArray(slots)) {
+                for (const slot of slots) {
+                    if (!slot || slot.available === false) continue;
+                    const stats = slot.stats;
+                    if (!Array.isArray(stats)) continue;
+                    for (const stat of stats) {
+                        if (!stat || stat.section !== 'spell') continue;
+                        const key = MAGE_ELEMENT_KEYS.find(k => String(stat.title || '').toLowerCase() === k);
+                        if (!key) continue;
+                        const v = Number(stat.val);
+                        if (Number.isFinite(v)) totals[key] += v;
                     }
-                    resolve(gCharBaseProf);
-                },
-                onerror() { resolve(gCharBaseProf); },
-                ontimeout() { resolve(gCharBaseProf); },
-            });
-        });
-        const settle = () => { if (gCharBaseProfRequest === request) gCharBaseProfRequest = null; };
-        request.then(settle, settle);
-        gCharBaseProfRequest = request;
-        return request;
+                }
+            }
+            let bestKey = '';
+            let bestVal = -1;
+            for (const key of MAGE_ELEMENT_KEYS) {
+                if (totals[key] > bestVal) { bestVal = totals[key]; bestKey = key; }
+            }
+            if (bestVal <= 0) return 'elemental';
+            if (bestKey === 'holy') return 'divine';
+            if (bestKey === 'dark') return 'forbidden';
+            return 'elemental';
+        } catch (error) { return 'elemental'; }
+    }
+    function captureBaseProfFromCharPage() {
+        try {
+            const url = new URL(location.href);
+            const isCharacterPage = url.searchParams.get('s') === 'Character' && url.searchParams.get('ss') === 'ch';
+            if (!isCharacterPage) return;
+            const map = parseCharProfMap(document);
+            if (map.elemental === null && map.divine === null && map.forbidden === null) {
+                console.warn('[HVEA] ss=ch 未解析到任何基础熟练', map);
+                return;
+            }
+            console.log('[HVEA] ss=ch 捕捉基础熟练', map);
+            writeStoredBaseProf(map);
+        } catch (error) { /* ignore */ }
+    }
+    function fetchCharBaseProf() {
+        const stored = readStoredBaseProf();
+        const key = equipmentProfKey();
+        if (stored && Number.isFinite(stored[key])) {
+            gCharBaseProf = stored[key];
+        } else {
+            gCharBaseProf = null;
+        }
+        return Promise.resolve(gCharBaseProf);
     }
     function getCurrentCounterResist() {
         let raw = null;
@@ -2536,6 +2608,9 @@ function showToast(message, type = "") {
         }
         if (maccCheckRefreshRequest) return maccCheckRefreshRequest;
         const generation = maccCheckGeneration;
+
+        const panel = ensureMaccCheckPanel();
+        if (panel) renderMaccCheckPanel();
 
         const request = (async () => {
             await fetchCharBaseProf(false);
@@ -3928,7 +4003,7 @@ function showToast(message, type = "") {
     const QUALITY_CONFIG = {
       '上等': {
         maxLevel: 10, needCore: false,
-        getReq: level => ({ low: 100, mid: 0, high: 0, rare: level <= 5 ? 1 : 2, legendaryCore: 0, peerlessCore: 0, credits: 1000 })
+        getReq: level => ({ low: 50, mid: 0, high: 0, rare: level <= 5 ? 1 : 2, legendaryCore: 0, peerlessCore: 0, credits: 1000 })
       },
       '优良': {
         maxLevel: 10, needCore: false,
@@ -5959,6 +6034,7 @@ function showToast(message, type = "") {
   }
 
   function init() {
+    captureBaseProfFromCharPage();
     if (!isEquipmentPage()) {
       removeUpgradeButton();
       return;
@@ -5985,6 +6061,7 @@ function showToast(message, type = "") {
     const sync = () => {
       if (location.href === lastUrl) return;
       lastUrl = location.href;
+      captureBaseProfFromCharPage();
       if (isEquipmentPage()) {
         if (initialized) {
           addUpgradeButton();
