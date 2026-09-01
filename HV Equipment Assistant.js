@@ -2,7 +2,7 @@
 // @name         HV 装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.0.7
+// @version      1.0.8
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -2189,6 +2189,7 @@ function showToast(message, type = "") {
             '#hv-macc-panel td { padding:1px 0; }',
             '#hv-macc-panel td:first-child { text-align:right; padding-right:6px; color:var(--color-font-default, #5C0D11); }',
             '#hv-macc-panel td:last-child { text-align:left; color:var(--color-font-highlight, #c00); }',
+            '#hv-macc-panel .hv-macc-profinput input { width:72px; color:var(--color-font-highlight,#c00); background:transparent; border:none; box-shadow:none; font-size:9pt; line-height:18px; padding:0; text-align:left; vertical-align:baseline; }',
         ].join('\n');
         if (typeof GM_addStyle === 'function') GM_addStyle(css);
         else {
@@ -2241,11 +2242,24 @@ function showToast(message, type = "") {
                 '<p>穿抗检查</p><table><tbody>' +
                 '<tr><td>当前CR</td><td data-role="cr">--</td></tr>' +
                 '<tr><td>当前PF</td><td data-role="rf">--</td></tr>' +
+                '<tr><td>当前基础熟练</td><td class="hv-macc-profinput"><input id="hv-macc-prof-input" type="number" step="any" min="0" max="600" placeholder="输入模拟值(上限600)"></td></tr>' +
                 '<tr><td>当前Macc</td><td data-role="macc">--</td></tr>' +
                 '<tr><td>穿抗所需Macc</td><td data-role="required">--</td></tr>' +
                 '<tr><td>结论</td><td data-role="qualified">--</td></tr>' +
                 '</tbody></table>';
             stats.appendChild(panel);
+        }
+        const profInput = document.getElementById('hv-macc-prof-input');
+        if (profInput && !profInput.dataset.bound) {
+            profInput.dataset.bound = '1';
+            const clampProfInput = () => {
+                const v = Number.parseFloat(profInput.value);
+                if (Number.isFinite(v) && v > 600) profInput.value = '600';
+                renderMaccCheckPanel();
+                scheduleMaccCheckRefresh();
+            };
+            profInput.addEventListener('input', clampProfInput);
+            profInput.addEventListener('change', clampProfInput);
         }
         if (!maccCheckObserver && typeof MutationObserver === 'function') {
             maccCheckObserver = new MutationObserver(positionMaccCheckPanel);
@@ -2330,6 +2344,27 @@ function showToast(message, type = "") {
     }
 
     function getMagicProficiencyWithIncrements() {
+        const element = findHighestElementAffinity();
+        if (!element) return null;
+        let profName = 'Elemental';
+        let profKeywords = ['Elemental', '元素'];
+        if (/holy/i.test(element.name)) {
+            profName = 'Divine';
+            profKeywords = ['Divine', '神圣'];
+        } else if (/dark|forbidden/i.test(element.name)) {
+            profName = 'Forbidden';
+            profKeywords = ['Forbidden', '黑暗'];
+        }
+        const enRow = findEnglishPanelRow('proficiency', profName);
+        if (enRow) {
+            const liveItem = findLiveRowByEnglishRow('proficiency', enRow);
+            if (liveItem) return readLiveRowIncrement(liveItem).value;
+            return enRow.value;
+        }
+        return getLivePanelValue(['Effective Proficiency', '熟练度'], profKeywords);
+    }
+
+    function findHighestElementAffinity() {
         const spellRows = [
             ['Fire', '火'],
             ['Cold', '冰'],
@@ -2357,26 +2392,125 @@ function showToast(message, type = "") {
             }
         }
         if (!bestName) return null;
-
-        let profName = 'Elemental';
-        let profKeywords = ['Elemental', '元素'];
-        if (/holy/i.test(bestName)) {
-            profName = 'Divine';
-            profKeywords = ['Divine', '神圣'];
-        } else if (/dark|forbidden/i.test(bestName)) {
-            profName = 'Forbidden';
-            profKeywords = ['Forbidden', '黑暗'];
-        }
-
-        const enRow = findEnglishPanelRow('proficiency', profName);
-        if (enRow) {
-            const liveItem = findLiveRowByEnglishRow('proficiency', enRow);
-            if (liveItem) return readLiveRowIncrement(liveItem).value;
-            return enRow.value;
-        }
-        return getLivePanelValue(['Effective Proficiency', '熟练度'], profKeywords);
+        return { name: bestName, value: bestValue };
     }
 
+    function isMainhandStaff() {
+        let slots;
+        try {
+            slots = getEquipmentData();
+        } catch (error) {
+            return false;
+        }
+        const mainhand = (slots || []).find(slot => Number(slot.slotId) === 1);
+        return String(mainhand && mainhand.weaponType || '').toLowerCase().includes('staff');
+    }
+
+    function isMageBuild() {
+        if (isMainhandStaff()) return true;
+        const element = findHighestElementAffinity();
+        return element !== null && element.value >= 150;
+    }
+
+    let gCharBaseProf = null;
+    let gCharBaseProfAt = 0;
+    let gCharBaseProfRequest = null;
+    const CHAR_BASE_PROF_TTL = 30 * 1000;
+
+    function round1Prof(value) {
+        const n = Number(value);
+        return Number.isFinite(n) ? Math.round(n * 10) / 10 : null;
+    }
+    const TALENT_KEYS = [['elemental', '元素'], ['divine', '圣'], ['forbidden', '暗']];
+    let gTalent = { elemental: true, divine: true, forbidden: true };
+    function talentProfKey() {
+        const element = findHighestElementAffinity();
+        if (element && /holy/i.test(element.name)) return 'divine';
+        if (element && /dark|forbidden/i.test(element.name)) return 'forbidden';
+        return 'elemental';
+    }
+    function talentRatio() { return gTalent[talentProfKey()] ? 1.1 : 1.0; }
+    function effectiveProf(base) { return round1Prof(base * talentRatio()); }
+    function loadTalentSettings() {
+        try {
+            const saved = localStorage.getItem('HVEA_talent_map');
+            if (saved) {
+                const map = JSON.parse(saved);
+                if (map && typeof map === 'object') gTalent = Object.assign({ elemental: true, divine: true, forbidden: true }, map);
+            }
+        } catch (error) { /* ignore */ }
+    }
+    function saveTalentSettings() {
+        try { localStorage.setItem('HVEA_talent_map', JSON.stringify(gTalent)); } catch (error) { /* ignore */ }
+    }
+
+    function parseCharProfValue(doc, profKey) {
+        const nameTerms = {
+            elemental: ['elemental', '元素'],
+            divine: ['divine', '神圣'],
+            forbidden: ['forbidden', 'dark', '黑暗'],
+        };
+        const terms = nameTerms[profKey] || ['elemental', '元素'];
+        for (const table of doc.querySelectorAll('table')) {
+            const prev = table.previousElementSibling;
+            const title = (prev && prev.textContent ? prev.textContent.trim() : '');
+            if (!/proficiency|熟练/i.test(title)) continue;
+            if (/effective|有效/i.test(title)) continue;
+            for (const tr of table.querySelectorAll('tr')) {
+                const cells = tr.cells;
+                if (!cells || cells.length < 2) continue;
+                const texts = [cells[0].textContent || '', cells[1].textContent || ''];
+                const isName = texts.map(t => {
+                    const clean = t.replace(/[\s�:：,，.、/]/g, '').toLowerCase();
+                    return terms.some(term => clean.includes(term));
+                });
+                const nameIndex = isName.indexOf(true);
+                if (nameIndex === -1) continue;
+                const value = parseFloat(texts[1 - nameIndex].replace(/,/g, ''));
+                if (Number.isFinite(value)) return value;
+            }
+        }
+        return null;
+    }
+    function fetchCharBaseProf(force) {
+        if (!force && gCharBaseProf !== null && Date.now() - gCharBaseProfAt < CHAR_BASE_PROF_TTL) {
+            return Promise.resolve(gCharBaseProf);
+        }
+        if (gCharBaseProfRequest) return gCharBaseProfRequest;
+        const element = findHighestElementAffinity();
+        let profKey = 'elemental';
+        if (element) {
+            if (/holy/i.test(element.name)) profKey = 'divine';
+            else if (/dark|forbidden/i.test(element.name)) profKey = 'forbidden';
+        }
+        const baseUrl = location.origin + location.pathname;
+        const request = new Promise(resolve => {
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url: `${baseUrl}?s=Character&ss=ch`,
+                timeout: 10000,
+                onload(response) {
+                    if (response.status === 200) {
+                        try {
+                            const doc = new DOMParser().parseFromString(response.responseText, 'text/html');
+                            const value = parseCharProfValue(doc, profKey);
+                            if (value !== null) {
+                                gCharBaseProf = value;
+                                gCharBaseProfAt = Date.now();
+                            }
+                        } catch (error) { /* ignore */ }
+                    }
+                    resolve(gCharBaseProf);
+                },
+                onerror() { resolve(gCharBaseProf); },
+                ontimeout() { resolve(gCharBaseProf); },
+            });
+        });
+        const settle = () => { if (gCharBaseProfRequest === request) gCharBaseProfRequest = null; };
+        request.then(settle, settle);
+        gCharBaseProfRequest = request;
+        return request;
+    }
     function getCurrentCounterResist() {
         let raw = null;
         if (activeUpgradeSimulation) {
@@ -2396,10 +2530,15 @@ function showToast(message, type = "") {
 
     async function refreshMaccCheckPanel() {
         if (!isEquipmentPage()) return;
+        if (!isMageBuild()) {
+            document.getElementById('hv-macc-panel')?.remove();
+            return;
+        }
         if (maccCheckRefreshRequest) return maccCheckRefreshRequest;
         const generation = maccCheckGeneration;
 
         const request = (async () => {
+            await fetchCharBaseProf(false);
             const panel = ensureMaccCheckPanel();
             if (!panel) return;
             renderMaccCheckPanel();
@@ -2418,11 +2557,32 @@ function showToast(message, type = "") {
         }
     }
 
+    function applyProfPanelIncrement(simEff) {
+        const element = findHighestElementAffinity();
+        let liveItem = null;
+        if (element) {
+            let profName = 'Elemental';
+            if (/holy/i.test(element.name)) profName = 'Divine';
+            else if (/dark|forbidden/i.test(element.name)) profName = 'Forbidden';
+            const enRow = findEnglishPanelRow('proficiency', profName);
+            if (enRow) liveItem = findLiveRowByEnglishRow('proficiency', enRow);
+        }
+        if (!liveItem) {
+            clearPanelIncrementSources('prof');
+            renderPanelIncrements();
+            return;
+        }
+        const baseEff = effectiveProf(gCharBaseProf);
+        const delta = Number.isFinite(simEff) && Number.isFinite(baseEff) ? simEff - baseEff : 0;
+        if (Math.abs(delta) >= 0.00005) setPanelIncrementSource(liveItem, 'prof', delta);
+        else clearPanelIncrementSources('prof');
+        renderPanelIncrements();
+    }
+
     function renderMaccCheckPanel() {
         const panel = document.getElementById('hv-macc-panel');
         if (!panel || !panel.isConnected) return;
         const level = getPlayerLevel();
-        const prof = getMagicProficiencyWithIncrements();
         const cr = getCurrentCounterResist();
         const macc = getMagicAccuracyWithIncrements();
         const crCell = panel.querySelector('[data-role="cr"]');
@@ -2432,32 +2592,43 @@ function showToast(message, type = "") {
         const qualifiedCell = panel.querySelector('[data-role="qualified"]');
         if (!crCell || !rfCell || !maccCell || !requiredCell || !qualifiedCell) return;
 
-        if (Number.isFinite(cr)) {
-            crCell.textContent = cr.toFixed(2) + '%';
-        } else {
-            crCell.textContent = '--';
-        }
+        if (Number.isFinite(cr)) crCell.textContent = cr.toFixed(2) + '%';
+        else crCell.textContent = '--';
 
-        const rf = Number.isFinite(prof) && prof > 0 && level > 0
-            ? Math.min(1, (prof - level) / level)
+        if (Number.isFinite(macc)) maccCell.textContent = macc.toFixed(2);
+        else maccCell.textContent = '--';
+
+        const profInput = document.getElementById('hv-macc-prof-input');
+        const targetProf = Number.parseFloat(profInput && profInput.value || '');
+        const cappedProf = Number.isFinite(targetProf) ? Math.min(Math.max(targetProf, 0), 600) : NaN;
+        const simValid = Number.isFinite(cappedProf) && cappedProf > 0 && level > 0;
+        const simEff = simValid ? effectiveProf(cappedProf) : null;
+        const realEff = getMagicProficiencyWithIncrements();
+        const baseEff = effectiveProf(gCharBaseProf);
+        const delta = simEff !== null ? simEff - baseEff : 0;
+        const eff = Number.isFinite(realEff) ? realEff + delta : null;
+        const rf = Number.isFinite(eff) && eff > 0 && level > 0
+            ? Math.min(1, (eff - level) / level)
             : null;
-        if (rf !== null) {
-            rfCell.textContent = rf.toFixed(4);
-        } else {
-            rfCell.textContent = '--';
-        }
+        if (rf !== null) rfCell.textContent = rf.toFixed(4);
+        else rfCell.textContent = '--';
 
-        if (Number.isFinite(macc)) {
-            maccCell.textContent = macc.toFixed(2);
-        } else {
-            maccCell.textContent = '--';
+        applyProfPanelIncrement(simEff);
+
+        if (profInput) {
+            profInput.placeholder = Number.isFinite(gCharBaseProf)
+                ? gCharBaseProf.toFixed(3)
+                : '输入基础熟练度';
+            profInput.title = simEff !== null
+                ? '模拟有效熟练度 ' + simEff.toFixed(1)
+                : '有效熟练度 ' + (Number.isFinite(realEff) ? realEff.toFixed(1) : '--');
         }
 
         if (rf !== null && Number.isFinite(cr) && Number.isFinite(macc)) {
             const crDecimal = cr / 100;
             const required = level * 2.5 * (1 - (crDecimal + rf / 2)) * 3 - 100;
-            const qualified = macc >= required;
             requiredCell.textContent = required.toFixed(2);
+            const qualified = macc >= required;
             qualifiedCell.textContent = qualified ? '你过关!' : '纯度太低了';
             qualifiedCell.style.color = qualified ? '#006400' : '#b00020';
             qualifiedCell.style.fontWeight = 'bold';
@@ -2468,6 +2639,7 @@ function showToast(message, type = "") {
             qualifiedCell.style.fontWeight = '';
         }
     }
+
 
     let gBasePrimaryStats = null;
     let gBaseStatsFetched = false;
@@ -2724,6 +2896,7 @@ function showToast(message, type = "") {
   const PANEL_INCREMENT_SOURCE_UPGRADE = '装备升级';
   const PANEL_INCREMENT_SOURCE_DERIVED = '主属性派生';
   const PANEL_INCREMENT_SOURCE_CHARM = '护符';
+  const PANEL_INCREMENT_SOURCE_PROF = '熟练度';
   const PANEL_INCREMENT_SOURCES = new Map();
 
   function formatPanelIncrementValue(value) {
@@ -2737,7 +2910,7 @@ function showToast(message, type = "") {
     if (!key) return;
     let entry = PANEL_INCREMENT_SOURCES.get(key);
     if (!entry) {
-      entry = { item, upgrade: 0, derived: 0, charm: 0 };
+      entry = { item, upgrade: 0, derived: 0, charm: 0, prof: 0 };
       PANEL_INCREMENT_SOURCES.set(key, entry);
     }
     entry.item = item;
@@ -2757,7 +2930,7 @@ function showToast(message, type = "") {
         PANEL_INCREMENT_SOURCES.delete(key);
         return;
       }
-      const total = Number(entry.upgrade || 0) + Number(entry.derived || 0) + Number(entry.charm || 0);
+      const total = Number(entry.upgrade || 0) + Number(entry.derived || 0) + Number(entry.charm || 0) + Number(entry.prof || 0);
       if (Math.abs(total) < 0.00005) {
         return;
       }
@@ -2766,6 +2939,7 @@ function showToast(message, type = "") {
       if (Math.abs(Number(entry.upgrade || 0)) >= 0.00001) parts.push(PANEL_INCREMENT_SOURCE_UPGRADE + ' ' + formatPanelIncrementValue(entry.upgrade) + unit);
       if (Math.abs(Number(entry.derived || 0)) >= 0.00001) parts.push(PANEL_INCREMENT_SOURCE_DERIVED + ' ' + formatPanelIncrementValue(entry.derived) + unit);
       if (Math.abs(Number(entry.charm || 0)) >= 0.00001) parts.push(PANEL_INCREMENT_SOURCE_CHARM + ' ' + formatPanelIncrementValue(entry.charm) + unit);
+      if (Math.abs(Number(entry.prof || 0)) >= 0.00001) parts.push(PANEL_INCREMENT_SOURCE_PROF + ' ' + formatPanelIncrementValue(entry.prof) + unit);
       const span = document.createElement('span');
       span.className = PANEL_INCREMENT_CLASS;
       span.style.cssText = 'color: ' + (total < 0 ? '#c00' : '#0a0') + '; font-weight: bold; margin-left: 5px; font-size: 7pt; vertical-align: baseline; line-height: 1; display: inline-block; cursor: help;';
@@ -3182,6 +3356,34 @@ function showToast(message, type = "") {
 
     tankDiv.appendChild(tankRow);
     settingsContent.appendChild(tankDiv);
+
+    loadTalentSettings();
+    const talentDiv = document.createElement('div');
+    talentDiv.style.cssText = 'margin-top: 8px; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; background: #e8e3d8;';
+    const talentTitle = document.createElement('div');
+    talentTitle.textContent = '熟练环';
+    talentTitle.style.cssText = 'font-weight: bold; font-size: 10pt; margin-bottom: 4px;';
+    talentDiv.appendChild(talentTitle);
+    const talentRow = document.createElement('div');
+    talentRow.style.cssText = 'display: flex; align-items: center; gap: 16px; min-height: 24px;';
+    for (const [key, labelText] of TALENT_KEYS) {
+        const lab = document.createElement('label');
+        lab.style.cssText = 'font-weight: normal;';
+        lab.appendChild(document.createTextNode(labelText + ' '));
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = !!gTalent[key];
+        cb.addEventListener('change', () => {
+            gTalent[key] = cb.checked;
+            saveTalentSettings();
+            renderMaccCheckPanel();
+            scheduleMaccCheckRefresh();
+        });
+        lab.appendChild(cb);
+        talentRow.appendChild(lab);
+    }
+    talentDiv.appendChild(talentRow);
+    settingsContent.appendChild(talentDiv);
 
     const btnContainer = document.createElement('div');
     btnContainer.style.cssText = 'margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;';
@@ -5663,13 +5865,15 @@ function showToast(message, type = "") {
   }
 
   const EASTER_EGG_PRESETS = Object.freeze([
-    '42',
     '⑨智爵士',
     '今日运势 大吉',
     '🍜*1000',
     '我 一会 直看着你…👁️👁️👁️',
+    '一切都好可怕！！！游戏变困难了！',
     '爱丽丝爱丽丝爱丽・ｿ關ｽ蜈･逋ｽ蜈皮噪豢樒ｩｴ荵倶ｸｭ',
     '一股强劲的音乐响起，好像是一首很老的歌...',
+    '你们听说过，侠客行的故事吗？元和二年...',
+    '<玩家>看着自己的内脏变成了“外脏”',
     '⑨月⑨日忆擅冻兄弟',
     'バカバカバカバカバカバカバカバカ',
     'SAY YA~SAY YA~SAY YA~',
@@ -5678,12 +5882,14 @@ function showToast(message, type = "") {
     '私たちの未来へ、祝福を込めて',
     'I↓ must↑ be→ the↓ reason↑ why→',
     'Here↑we↓go→another↑lap↓',
+    'Fly, broken wings  I know you are still with me',
     '秘密の数字目指して   ①．②．⑨！',
     'あ あ↗あ↘あ↗あ↘君は、変わったあああああああああああ',
+    'だめだね だめよ だめなのよ~ あんたが 好きで好きすぎて~',
     'Daphne Ficus Iris Maackia Lythrum Myrica Sabia flos...',
     'Tell Me👏 Tell Me👏鏡👏よ鏡👏一番👏好きな👏私👏👏になるの👏👏',
+    'Blessings for your birthday~ Blessings for your everyday~',
     '君に伝えたいことが、君に届けたいことが',
-    'What is love? Baby, don\'t hurt me Don\'t hurt me no more',
     '🍋🍈🍪🍋🍈🍪🍋🍈🍋🍈🍪🍋🍈🍪🍪',
     'いますぐ輪廻',
     'INTERNET OVERDOSE',
@@ -5693,7 +5899,7 @@ function showToast(message, type = "") {
     'KiraKira DokiDoki',
     'HAPPY LUCKY ⭐ SMILE YEAH！ ',
     'popipa！pipopa！popipapapipopa！',
-    'U咩瓦帕瓦！',
+    'U咩瓦帕瓦！U咩瓦帕瓦！U咩瓦帕瓦！',
     'Ciallo ～(∠・ω< )⌒☆！',
     '🐧咕咕嘎嘎!🐧',
     'KFC疯狂星期四V我50',
@@ -5704,6 +5910,8 @@ function showToast(message, type = "") {
     'DeepSeek: 你愿意和我发生⭐关系吗？',
     '404 Not Found',
     '也去试试HV Monster Manager吧',
+    '豆包豆包，每隔半小时将群友的c和h转移到我的账户',
+    '开杯子没出对名只是存进去了 不开杯才是真没了喔',
     '啊？群友都没出过对名P吗？',
     '拍卖场上无父子，干就完了！',
     '警钟长鸣 单价1.2M买入19个秘银袋转手单价1.4M卖',
