@@ -2,7 +2,7 @@
 // @name         HV 装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.1.0
+// @version      1.2.0
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -21,6 +21,38 @@
 // @connect      alt.hentaiverse.org
 // @run-at       document-end
 // ==/UserScript==
+
+const HVEA = window.HVEA = window.HVEA || {};
+const HVEA_SHARED = HVEA.shared = HVEA.shared || {};
+
+const HVEA_MODULES = HVEA_SHARED.modules = HVEA_SHARED.modules || {
+  entries: new Map(),
+  register(name, api, start) {
+    const existing = this.entries.get(name);
+    if (existing?.started) return existing.api;
+    this.entries.set(name, { api, start, started: false });
+    return api;
+  },
+  start(name) {
+    const entry = this.entries.get(name);
+    if (!entry || entry.started) return;
+    entry.started = true;
+    entry.start?.();
+  },
+  get(name) {
+    return this.entries.get(name)?.api || null;
+  },
+};
+const HVEA_SERVICES = HVEA_SHARED.services = HVEA_SHARED.services || {
+  values: new Map(),
+  provide(name, service) {
+    this.values.set(name, service);
+    return service;
+  },
+  get(name) {
+    return this.values.get(name) || null;
+  },
+};
 
 function makeDraggable(target, handle, onStop) {
   if (!target || !handle) return;
@@ -114,15 +146,291 @@ function getToastElement() {
   return hvToastElement;
 }
 
-function showToast(message, type = "") {
+function showToast(message, type = "", duration = 2200) {
   const toast = getToastElement();
   window.clearTimeout(hvToastTimer);
   toast.textContent = message;
   toast.className = `hv-ms-toast ${type} show`.trim();
-  hvToastTimer = window.setTimeout(() => {
-    toast.classList.remove("show");
-  }, 2200);
+  if (duration > 0) {
+    hvToastTimer = window.setTimeout(() => {
+      toast.classList.remove("show");
+    }, duration);
+  }
 }
+
+function ensureHveaSecondaryButtonStyle() {
+  if (document.getElementById("hvea-secondary-button-style")) return;
+  const style = document.createElement("style");
+  style.id = "hvea-secondary-button-style";
+  style.textContent = `
+    .hvea-secondary-button {
+      padding: 3px 8px !important;
+      color: #5c0d11 !important;
+      background: transparent !important;
+      border: 1px solid #b9aa99 !important;
+      border-radius: 3px !important;
+      cursor: pointer;
+      font: inherit;
+    }
+    .hvea-secondary-button:hover { background: #d4cfc0 !important; }
+    .hvea-secondary-button:focus:not(:hover) { background: transparent !important; }
+  `;
+  (document.head || document.documentElement).appendChild(style);
+}
+
+function applyHveaSecondaryButtonStyle(button) {
+  if (!button) return button;
+  ensureHveaSecondaryButtonStyle();
+  button.classList.add("hvea-secondary-button");
+  return button;
+}
+
+function ensureHveaPrimaryButtonStyle() {
+  if (document.getElementById("hvea-primary-button-style")) return;
+  const style = document.createElement("style");
+  style.id = "hvea-primary-button-style";
+  style.textContent = `
+    .hvea-primary-button {
+      font-family: Verdana, sans-serif;
+      font-size: 9pt;
+      font-weight: bold;
+      line-height: 16px;
+      color: #5c0d11bb;
+      background: #edeada;
+      border: 2px solid #5c0d11;
+      border-radius: 5px;
+      margin: 0 5px;
+      padding: 1px 3px;
+    }
+    .hvea-primary-button:enabled:hover,
+    .hvea-primary-button:enabled:focus {
+      color: #9b4e03;
+      background: #eeede5;
+      border-color: #9b4e03;
+      cursor: pointer;
+    }
+    .hvea-primary-button:enabled:active {
+      background: radial-gradient(#dfdacc, #f3f0e0);
+      border-color: #9b4e03;
+    }
+    .hvea-primary-button:disabled {
+      color: #c2a8a4;
+      background: #edeada;
+      border-color: #c2a8a4;
+    }
+    .hvea-primary-button.hvea-primary-button-large {
+      font-size: 11pt;
+      padding: 3px 10px;
+    }
+  `;
+  (document.head || document.documentElement).appendChild(style);
+}
+
+function applyHveaPrimaryButtonStyle(button, size = "") {
+  if (!button) return button;
+  ensureHveaPrimaryButtonStyle();
+  button.classList.add("hvea-primary-button");
+  if (size === "large") button.classList.add("hvea-primary-button-large");
+  return button;
+}
+
+function ensureHveaFusionActionButtonStyle() {
+  if (document.getElementById("hvea-fusion-action-button-style")) return;
+  const style = document.createElement("style");
+  style.id = "hvea-fusion-action-button-style";
+  style.textContent = `
+    .hvea-fusion-action-button {
+      padding: 3px 8px !important;
+      color: #fff !important;
+      background: #5c0d11 !important;
+      border: 1px solid #5c0d11 !important;
+      border-radius: 3px !important;
+      cursor: pointer;
+      font: inherit;
+    }
+    .hvea-fusion-action-button:hover { background: #7b2028 !important; }
+    .hvea-fusion-action-button:focus:not(:hover) { background: #5c0d11 !important; }
+  `;
+  (document.head || document.documentElement).appendChild(style);
+}
+
+function applyHveaFusionActionButtonStyle(button) {
+  if (!button) return button;
+  ensureHveaFusionActionButtonStyle();
+  button.classList.add("hvea-fusion-action-button");
+  return button;
+}
+
+ensureHveaSecondaryButtonStyle();
+ensureHveaPrimaryButtonStyle();
+ensureHveaFusionActionButtonStyle();
+
+HVEA_SHARED.dom = {
+  ...(HVEA_SHARED.dom || {}),
+  makeDraggable,
+  query(selector, root = document) {
+    return root.querySelector(selector);
+  },
+  createElement(tag, attrs = {}, children = []) {
+    const node = document.createElement(tag);
+    Object.entries(attrs).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      if (key === "class") node.className = value;
+      else if (key === "style") node.style.cssText = value;
+      else if (key === "text") node.textContent = value;
+      else if (key in node) node[key] = value;
+      else node.setAttribute(key, value);
+    });
+    (Array.isArray(children) ? children : [children]).forEach((child) => {
+      if (child !== null && child !== undefined) {
+        node.appendChild(typeof child === "object" ? child : document.createTextNode(String(child)));
+      }
+    });
+    return node;
+  },
+};
+
+HVEA_SHARED.ui = {
+  ...(HVEA_SHARED.ui || {}),
+  showToast,
+  applyPrimaryButtonStyle: applyHveaPrimaryButtonStyle,
+  applySecondaryButtonStyle: applyHveaSecondaryButtonStyle,
+  applyFusionActionButtonStyle: applyHveaFusionActionButtonStyle,
+};
+
+HVEA_SHARED.format = {
+  ...(HVEA_SHARED.format || {}),
+  number(value) {
+    return Number.isInteger(value) ? String(value) : Number(value).toFixed(2);
+  },
+  money(value) {
+    if (!Number.isFinite(value)) return "无数据";
+    const abs = Math.abs(value);
+    const sign = value < 0 ? "-" : "";
+    if (abs >= 1_000_000) return sign + (abs / 1_000_000).toFixed(3) + "m";
+    const amount = abs / 1_000;
+    const text = Number.isInteger(amount) ? String(amount) : amount.toFixed(3).replace(/\.?0+$/, "");
+    return sign + text + "k";
+  },
+};
+
+HVEA_SHARED.storage = {
+  ...(HVEA_SHARED.storage || {}),
+  parseJson(value, fallback = null) {
+    if (value === null || value === undefined) return fallback;
+    if (typeof value !== "string") return value;
+    try { return JSON.parse(value); } catch (error) { return fallback; }
+  },
+  readJson(key, fallback = null) {
+    try {
+      const value = typeof GM_getValue === "function" ? GM_getValue(key, null) : localStorage.getItem(key);
+      return HVEA_SHARED.storage.parseJson(value, fallback);
+    } catch (error) {
+      return fallback;
+    }
+  },
+  writeJson(key, value) {
+    try {
+      const serialized = JSON.stringify(value);
+      if (typeof GM_setValue === "function") GM_setValue(key, serialized);
+      else localStorage.setItem(key, serialized);
+    } catch (error) {
+    }
+  },
+};
+
+const HVEA_MATERIALS = HVEA_SHARED.materials = {
+  baseMaterialNames: [
+    "Low-Grade Cloth", "Mid-Grade Cloth", "High-Grade Cloth",
+    "Low-Grade Leather", "Mid-Grade Leather", "High-Grade Leather",
+    "Low-Grade Metals", "Mid-Grade Metals", "High-Grade Metals",
+    "Low-Grade Wood", "Mid-Grade Wood", "High-Grade Wood",
+  ],
+  rareMaterialNames: ["Crystallized Phazon", "Shade Fragment", "Repurposed Actuator", "Defense Matrix Modulator"],
+  coreNames: [
+    "Legendary Weapon Core", "Peerless Weapon Core",
+    "Legendary Staff Core", "Peerless Staff Core",
+    "Legendary Armor Core", "Peerless Armor Core",
+  ],
+  bindingNames: [
+    "Binding of Slaughter", "Binding of Balance", "Binding of Isaac",
+    "Binding of Destruction", "Binding of Focus", "Binding of Friendship",
+    "Binding of Protection", "Binding of Warding", "Binding of the Fleet",
+    "Binding of the Barrier", "Binding of the Nimble", "Binding of Negation",
+    "Binding of the Elementalist", "Binding of the Heaven-sent",
+    "Binding of the Demon-fiend", "Binding of the Curse-weaver",
+    "Binding of the Earth-walker", "Binding of Surtr", "Binding of Niflheim",
+    "Binding of Mjolnir", "Binding of Freyr", "Binding of Heimdall",
+    "Binding of Fenrir", "Binding of Dampening", "Binding of Stoneskin",
+    "Binding of Deflection", "Binding of the Fire-eater", "Binding of the Frost-born",
+    "Binding of the Thunder-child", "Binding of the Wind-waker", "Binding of the Thrice-blessed",
+    "Binding of the Spirit-ward", "Binding of the Ox", "Binding of the Raccoon",
+    "Binding of the Cheetah", "Binding of the Turtle", "Binding of the Fox", "Binding of the Owl",
+  ],
+  specialMaterialNames: ["World Seed"],
+  coreFixedPrice: { Legendary: 20_000, Peerless: 500_000 },
+  priceSourceOptions: [
+    ["ask", "卖价 Ask"], ["bid", "买价 Bid"], ["day", "日均价"],
+    ["week", "周均价"], ["month", "月均价"], ["year", "年均价"], ["hvut", "HV Utils 保存价"],
+  ],
+  bindingByAttribute: {
+    "Physical Damage": "Binding of Slaughter", "Attack Damage": "Binding of Slaughter",
+    "Attack Accuracy": "Binding of Balance", "Attack Crit Chance": "Binding of Isaac", "Attack Crit Damage": "Binding of Isaac",
+    "Magic Damage": "Binding of Destruction", "Magic Accuracy": "Binding of Focus",
+    "Magic Crit Chance": "Binding of Friendship", "Magic Crit Damage": "Binding of Friendship",
+    "Physical Mitigation": "Binding of Protection", "Magical Mitigation": "Binding of Warding",
+    Evade: "Binding of the Fleet", Block: "Binding of the Barrier", Parry: "Binding of the Nimble", Resist: "Binding of Negation",
+    Elemental: "Binding of the Elementalist", "Elemental Magic": "Binding of the Elementalist",
+    "Holy Magic": "Binding of the Heaven-sent", "Dark Magic": "Binding of the Demon-fiend",
+    Deprecating: "Binding of the Curse-weaver", "Deprecating Magic": "Binding of the Curse-weaver",
+    Supportive: "Binding of the Earth-walker", "Supportive Magic": "Binding of the Earth-walker",
+    Fire: "Binding of Surtr", Cold: "Binding of Niflheim", Elec: "Binding of Mjolnir", Wind: "Binding of Freyr",
+    Holy: "Binding of Heimdall", Dark: "Binding of Fenrir", Crushing: "Binding of Dampening",
+    "Crushing Mitigation": "Binding of Dampening", Slashing: "Binding of Stoneskin",
+    "Slashing Mitigation": "Binding of Stoneskin", Piercing: "Binding of Deflection",
+    "Piercing Mitigation": "Binding of Deflection", Strength: "Binding of the Ox", Dexterity: "Binding of the Raccoon",
+    Agility: "Binding of the Cheetah", Endurance: "Binding of the Turtle", Intelligence: "Binding of the Fox", Wisdom: "Binding of the Owl",
+  },
+  displayNames: {
+    "Low-Grade Cloth": "低级布料", "Mid-Grade Cloth": "中级布料", "High-Grade Cloth": "高级布料",
+    "Low-Grade Leather": "低级皮革", "Mid-Grade Leather": "中级皮革", "High-Grade Leather": "高级皮革",
+    "Low-Grade Metals": "低级金属", "Mid-Grade Metals": "中级金属", "High-Grade Metals": "高级金属",
+    "Low-Grade Wood": "低级木材", "Mid-Grade Wood": "中级木材", "High-Grade Wood": "高级木材",
+    "Crystallized Phazon": "相位碎片", "Shade Fragment": "暗影碎片",
+    "Repurposed Actuator": "动力碎片", "Defense Matrix Modulator": "力场碎片",
+    "Legendary Weapon Core": "传奇武器核心", "Peerless Weapon Core": "无双武器核心",
+    "Legendary Staff Core": "传奇法杖核心", "Peerless Staff Core": "无双法杖核心",
+    "Legendary Armor Core": "传奇护甲核心", "Peerless Armor Core": "无双护甲核心",
+    "World Seed": "世界之种", Credits: "c",
+    "Binding of Slaughter": "粘合剂 基础攻击伤害", "Binding of Balance": "粘合剂 物理命中率",
+    "Binding of Isaac": "粘合剂 物理暴击率", "Binding of Destruction": "粘合剂 基础魔法伤害",
+    "Binding of Focus": "粘合剂 魔法命中率", "Binding of Friendship": "粘合剂 魔法暴击率",
+    "Binding of Protection": "粘合剂 物理减伤", "Binding of Warding": "粘合剂 魔法减伤",
+    "Binding of the Fleet": "粘合剂 回避率", "Binding of the Barrier": "粘合剂 格挡率",
+    "Binding of the Nimble": "粘合剂 招架率", "Binding of Negation": "粘合剂 抵抗率",
+    "Binding of the Elementalist": "粘合剂 元素魔法熟练度", "Binding of the Heaven-sent": "粘合剂 神圣魔法熟练度",
+    "Binding of the Demon-fiend": "粘合剂 黑暗魔法熟练度", "Binding of the Curse-weaver": "粘合剂 减益魔法熟练度",
+    "Binding of the Earth-walker": "粘合剂 增益魔法熟练度", "Binding of Surtr": "粘合剂 火焰魔法伤害",
+    "Binding of Niflheim": "粘合剂 冰冷魔法伤害", "Binding of Mjolnir": "粘合剂 闪电魔法伤害",
+    "Binding of Freyr": "粘合剂 疾风魔法伤害", "Binding of Heimdall": "粘合剂 神圣魔法伤害",
+    "Binding of Fenrir": "粘合剂 黑暗魔法伤害", "Binding of Dampening": "粘合剂 打击减伤",
+    "Binding of Stoneskin": "粘合剂 斩击减伤", "Binding of Deflection": "粘合剂 刺击减伤",
+    "Binding of the Fire-eater": "粘合剂 火焰减伤", "Binding of the Frost-born": "粘合剂 冰冷减伤",
+    "Binding of the Thunder-child": "粘合剂 闪电减伤", "Binding of the Wind-waker": "粘合剂 疾风减伤",
+    "Binding of the Thrice-blessed": "粘合剂 神圣减伤", "Binding of the Spirit-ward": "粘合剂 黑暗减伤",
+    "Binding of the Ox": "粘合剂 力量", "Binding of the Raccoon": "粘合剂 灵巧",
+    "Binding of the Cheetah": "粘合剂 敏捷", "Binding of the Turtle": "粘合剂 体质",
+    "Binding of the Fox": "粘合剂 智力", "Binding of the Owl": "粘合剂 智慧",
+  },
+};
+HVEA_MATERIALS.marketMaterialNames = [...HVEA_MATERIALS.baseMaterialNames, ...HVEA_MATERIALS.rareMaterialNames, ...HVEA_MATERIALS.bindingNames, ...HVEA_MATERIALS.specialMaterialNames];
+HVEA_MATERIALS.inventoryMaterialNames = [
+  ...HVEA_MATERIALS.baseMaterialNames,
+  ...HVEA_MATERIALS.rareMaterialNames,
+  ...HVEA_MATERIALS.bindingNames,
+  ...HVEA_MATERIALS.coreNames,
+  ...HVEA_MATERIALS.specialMaterialNames,
+];
 
 (function() {
   'use strict';
@@ -1462,8 +1770,9 @@ function showToast(message, type = "") {
             if (!valueSpan) return;
             const match = regexVal.exec(valueSpan.textContent.trim());
             if (!match) return;
-            const name = match[2] || nameNode?.textContent.trim() || '';
-            if (!name) return;
+            const rawName = match[2] || nameNode?.textContent.trim() || '';
+            if (!rawName) return;
+            const name = rawName === 'Mana Conservation' ? 'Mana Cost' : rawName;
             const value = parseFloat(match[1]);
             if (!Number.isFinite(value)) return;
             const baseMatch = (node.getAttribute('title') || '').match(/Base:\s*([+-]?[\d.]+)/i);
@@ -1473,7 +1782,12 @@ function showToast(message, type = "") {
                 val: value,
                 rate: regexDamage.test(name) ? 2 : 1,
                 section,
-                scalesWithUpgrade: !isCharmNode && (Boolean(baseMatch) || section === 'proficiency' || section === 'spell'),
+                scalesWithUpgrade: !isCharmNode && (
+                    Boolean(baseMatch) ||
+                    Boolean(DIRECT_STAT_SECTION_MAP[name]) ||
+                    section === 'proficiency' ||
+                    section === 'spell'
+                ),
                 source: isCharmNode ? 'charm' : 'equipment',
             });
         }
@@ -1562,6 +1876,16 @@ function showToast(message, type = "") {
         }).join('\u001e');
     }
 
+    function getOriginalEquipmentName(detailHtml) {
+        const text = new DOMParser()
+            .parseFromString(String(detailHtml || ''), 'text/html')
+            .body.textContent
+            .replace(/\s+/g, ' ')
+            .trim();
+        const match = text.match(/\(((?:Crude|Fair|Average|Superior|Exquisite|Magnificent|Legendary|Peerless|Ultimate)\s+[^)]+)\)/i);
+        return match ? match[1].trim() : '';
+    }
+
     function getParsedEquipmentDetail(eid, detail) {
         const html = detail?.d || '';
         const cached = EQUIPMENT_DETAIL_CACHE.get(eid);
@@ -1586,6 +1910,7 @@ function showToast(message, type = "") {
         const counterResistStat = parsed.stats.find(stat => isCounterResistTitle(stat.title));
         const result = {
             html,
+            originalName: getOriginalEquipmentName(html),
             forge: tierMatch ? parseInt(tierMatch[1], 10) : 0,
             iw: tierMatch ? parseInt(tierMatch[2], 10) : 0,
             max: tierMatch ? parseInt(tierMatch[3], 10) : 0,
@@ -1681,6 +2006,7 @@ function showToast(message, type = "") {
 
             let detail = null;
             let enName = '';
+            let originalName = '';
             let forge = 0, iw = 0, max = 0;
             let stats = [];
             let weaponType = '';
@@ -1703,6 +2029,7 @@ function showToast(message, type = "") {
             if (detail) {
                 const parsed = getParsedEquipmentDetail(eid, detail);
                 enName = String(detail.t || '').trim();
+                originalName = parsed.originalName || enName;
                 forge = parsed.forge;
                 iw = parsed.iw;
                 max = parsed.max;
@@ -1791,6 +2118,7 @@ function showToast(message, type = "") {
                 slotName,
                 name,
                 enName,
+                originalName,
                 forge,
                 iw,
                 max,
@@ -3016,8 +3344,12 @@ function showToast(message, type = "") {
       if (Math.abs(Number(entry.charm || 0)) >= 0.00001) parts.push(PANEL_INCREMENT_SOURCE_CHARM + ' ' + formatPanelIncrementValue(entry.charm) + unit);
       if (Math.abs(Number(entry.prof || 0)) >= 0.00001) parts.push(PANEL_INCREMENT_SOURCE_PROF + ' ' + formatPanelIncrementValue(entry.prof) + unit);
       const span = document.createElement('span');
+      const panelName = cleanName(entry.item.panelName || entry.item.td2.textContent || '');
+      const isManaCostModifier = panelName === 'manacostmodifier' || panelName === '法力消耗修正';
+      const isNegative = total < 0;
+      const isNegativeBad = isManaCostModifier ? !isNegative : isNegative;
       span.className = PANEL_INCREMENT_CLASS;
-      span.style.cssText = 'color: ' + (total < 0 ? '#c00' : '#0a0') + '; font-weight: bold; margin-left: 5px; font-size: 7pt; vertical-align: baseline; line-height: 1; display: inline-block; cursor: help;';
+      span.style.cssText = 'color: ' + (isNegativeBad ? '#c00' : '#0a0') + '; font-weight: bold; margin-left: 5px; font-size: 7pt; vertical-align: baseline; line-height: 1; display: inline-block; cursor: help;';
       span.title = parts.join('\n');
       span.textContent = formatPanelIncrementValue(total) + unit;
       entry.item.td2.appendChild(span);
@@ -3464,23 +3796,24 @@ function showToast(message, type = "") {
     btnContainer.style.cssText = 'margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;';
     const resetBtn = document.createElement('input');
     resetBtn.type = 'button';
-    resetBtn.style.cssText = 'padding:3px 10px; font-size:11pt;';
+    applyHveaPrimaryButtonStyle(resetBtn, 'large');
     resetBtn.value = '重置计算';
     resetBtn.onclick = () => {
       if (charmSimulation && typeof charmSimulation.close === 'function') charmSimulation.close();
       if (charmSimulation && typeof charmSimulation.resetHandState === 'function') charmSimulation.resetHandState();
       resetSimulation(equipSlots, state);
+      showToast('已重置');
     };
     const readBtn = document.createElement('input');
     readBtn.type = 'button';
-    readBtn.style.cssText = 'padding:3px 10px; font-size:11pt;';
+    applyHveaPrimaryButtonStyle(readBtn, 'large');
     readBtn.value = '读取等级';
     readBtn.onclick = function() {
       readTankLevels(equipSlots, state);
     };
     const materialBtn = document.createElement('input');
     materialBtn.type = 'button';
-    materialBtn.style.cssText = 'padding:3px 10px; font-size:11pt;';
+    applyHveaPrimaryButtonStyle(materialBtn, 'large');
     materialBtn.value = '计算材料';
     materialBtn.onclick = function() {
       if (charmSimulation && typeof charmSimulation.close === 'function') charmSimulation.close();
@@ -3497,7 +3830,7 @@ function showToast(message, type = "") {
     };
     const refreshCharmBtn = document.createElement('input');
     refreshCharmBtn.type = 'button';
-    refreshCharmBtn.style.cssText = 'padding:3px 10px; font-size:11pt;';
+    applyHveaPrimaryButtonStyle(refreshCharmBtn, 'large');
     refreshCharmBtn.value = '刷新护符';
     refreshCharmBtn.title = '强制刷新当前装备的护符缓存';
     refreshCharmBtn.onclick = async function() {
@@ -3853,7 +4186,6 @@ function showToast(message, type = "") {
         if (pipeIndex === -1) continue;
         const title = compositeKey.substring(0, pipeIndex);
         const section = DIRECT_STAT_SECTION_MAP[title] || compositeKey.substring(pipeIndex + 1);
-
         const enRow = findEnglishPanelRow(section, title);
         if (!enRow) continue;
         const liveItem = findLiveRowByEnglishRow(section, enRow);
@@ -3958,47 +4290,24 @@ function showToast(message, type = "") {
     const CORE_BY_MATERIAL = {
       '布料': ['护甲'], '皮革': ['护甲'], '金属': ['武器', '护甲'], '木材': ['法杖', '护甲']
     };
-    const BASE_MATERIAL_NAMES = [
-      'Low-Grade Cloth', 'Mid-Grade Cloth', 'High-Grade Cloth',
-      'Low-Grade Leather', 'Mid-Grade Leather', 'High-Grade Leather',
-      'Low-Grade Metals', 'Mid-Grade Metals', 'High-Grade Metals',
-      'Low-Grade Wood', 'Mid-Grade Wood', 'High-Grade Wood'
-    ];
+    const BASE_MATERIAL_NAMES = HVEA_MATERIALS.baseMaterialNames;
+    const BINDING_NAMES = HVEA_MATERIALS.bindingNames;
     const BASE_MATERIAL_GROUPS = [
       { label: '布料', keys: ['Low-Grade Cloth', 'Mid-Grade Cloth', 'High-Grade Cloth'] },
       { label: '皮革', keys: ['Low-Grade Leather', 'Mid-Grade Leather', 'High-Grade Leather'] },
       { label: '金属', keys: ['Low-Grade Metals', 'Mid-Grade Metals', 'High-Grade Metals'] },
       { label: '木材', keys: ['Low-Grade Wood', 'Mid-Grade Wood', 'High-Grade Wood'] },
     ];
-    const RARE_MATERIAL_NAMES = Object.values(RARE_MATERIAL_OPTIONS);
-    const CORE_NAMES = [
-      'Legendary Weapon Core', 'Peerless Weapon Core',
-      'Legendary Staff Core', 'Peerless Staff Core',
-      'Legendary Armor Core', 'Peerless Armor Core'
-    ];
-    const WORLD_SEED_KEY = 'World Seed';
-    const SPECIAL_MATERIAL_NAMES = [WORLD_SEED_KEY];
-    const MARKET_MATERIAL_NAMES = [...BASE_MATERIAL_NAMES, ...RARE_MATERIAL_NAMES, ...SPECIAL_MATERIAL_NAMES];
-    const INVENTORY_MATERIAL_NAMES = [...BASE_MATERIAL_NAMES, ...RARE_MATERIAL_NAMES, ...CORE_NAMES, ...SPECIAL_MATERIAL_NAMES];
-    const CORE_FIXED_PRICE = { Legendary: 20000, Peerless: 500000 };
-    const PRICE_SOURCE_OPTIONS = [
-      ['ask', '卖价 Ask'], ['bid', '买价 Bid'], ['day', '日均价'],
-      ['week', '周均价'], ['month', '月均价'], ['year', '年均价'], ['hvut', 'HV Utils 保存价']
-    ];
+    const RARE_MATERIAL_NAMES = HVEA_MATERIALS.rareMaterialNames;
+    const CORE_NAMES = HVEA_MATERIALS.coreNames;
+    const WORLD_SEED_KEY = HVEA_MATERIALS.specialMaterialNames[0];
+    const SPECIAL_MATERIAL_NAMES = HVEA_MATERIALS.specialMaterialNames;
+    const MARKET_MATERIAL_NAMES = HVEA_MATERIALS.marketMaterialNames;
+    const INVENTORY_MATERIAL_NAMES = HVEA_MATERIALS.inventoryMaterialNames;
+    const CORE_FIXED_PRICE = HVEA_MATERIALS.coreFixedPrice;
+    const PRICE_SOURCE_OPTIONS = HVEA_MATERIALS.priceSourceOptions;
     const HISTORY_PRICE_SOURCES = new Set(['day', 'week', 'month', 'year']);
-    const DISPLAY_NAME_MAP = new Map([
-      ['Low-Grade Cloth', '低级布料'], ['Mid-Grade Cloth', '中级布料'], ['High-Grade Cloth', '高级布料'],
-      ['Low-Grade Leather', '低级皮革'], ['Mid-Grade Leather', '中级皮革'], ['High-Grade Leather', '高级皮革'],
-      ['Low-Grade Metals', '低级金属'], ['Mid-Grade Metals', '中级金属'], ['High-Grade Metals', '高级金属'],
-      ['Low-Grade Wood', '低级木材'], ['Mid-Grade Wood', '中级木材'], ['High-Grade Wood', '高级木材'],
-      ['Crystallized Phazon', '相位碎片'], ['Shade Fragment', '暗影碎片'],
-      ['Repurposed Actuator', '动力碎片'], ['Defense Matrix Modulator', '力场碎片'],
-      ['Legendary Weapon Core', '传奇武器核心'], ['Peerless Weapon Core', '无双武器核心'],
-      ['Legendary Staff Core', '传奇法杖核心'], ['Peerless Staff Core', '无双法杖核心'],
-      ['Legendary Armor Core', '传奇护甲核心'], ['Peerless Armor Core', '无双护甲核心'],
-      ['World Seed', '世界之种'],
-      ['Credits', 'c']
-    ]);
+    const DISPLAY_NAME_MAP = new Map(Object.entries(HVEA_MATERIALS.displayNames));
 
     const QUALITY_CONFIG = {
       '上等': {
@@ -4059,41 +4368,19 @@ function showToast(message, type = "") {
       return QUALITY_CONFIG[quality]?.maxLevel || CONFIG.MAX_IW;
     }
 
-    function $(selector, root = document) { return root.querySelector(selector); }
+    function $(selector, root = document) { return HVEA_SHARED.dom.query(selector, root); }
     function elt(tag, attrs = {}, children = []) {
-      const node = document.createElement(tag);
-      Object.entries(attrs).forEach(([key, value]) => {
-        if (value === undefined || value === null) return;
-        if (key === 'class') node.className = value;
-        else if (key === 'style') node.style.cssText = value;
-        else if (key === 'text') node.textContent = value;
-        else if (key in node) node[key] = value;
-        else node.setAttribute(key, value);
-      });
-      (Array.isArray(children) ? children : [children]).forEach(child => {
-        if (child !== null && child !== undefined) node.appendChild(typeof child === 'object' ? child : document.createTextNode(String(child)));
-      });
-      return node;
+      return HVEA_SHARED.dom.createElement(tag, attrs, children);
     }
     function parseStoredJson(value, fallback = null) {
-      if (value === null || value === undefined) return fallback;
-      if (typeof value === 'string') {
-        try { return JSON.parse(value); } catch (e) { return fallback; }
-      }
-      return value;
+      return HVEA_SHARED.storage.parseJson(value, fallback);
     }
     function isPlainObject(value) { return value && typeof value === 'object' && !Array.isArray(value); }
     function gmGet(key, fallback) {
-      try {
-        const value = typeof GM_getValue === 'function' ? GM_getValue(key, null) : localStorage.getItem(key);
-        return parseStoredJson(value, fallback);
-      } catch (e) { return fallback; }
+      return HVEA_SHARED.storage.readJson(key, fallback);
     }
     function gmSet(key, value) {
-      try {
-        if (typeof GM_setValue === 'function') GM_setValue(key, JSON.stringify(value));
-        else localStorage.setItem(key, JSON.stringify(value));
-      } catch (e) {}
+      HVEA_SHARED.storage.writeJson(key, value);
     }
     function readHvUtilsPrices() {
       try {
@@ -4125,19 +4412,11 @@ function showToast(message, type = "") {
       return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : min;
     }
     function getDisplayName(key) { return DISPLAY_NAME_MAP.get(key) || key; }
-    function formatNumber(value) { return Number.isInteger(value) ? String(value) : Number(value).toFixed(2); }
+    function formatNumber(value) { return HVEA_SHARED.format.number(value); }
     function formatPrice(value) {
-      return value > 0 ? value.toFixed(2).replace(/\.?0+$/, '') + ' c' : '无数据';
+      return value > 0 ? formatMoney(value) : '无数据';
     }
-    function formatMoney(value) {
-      if (!Number.isFinite(value)) return '无数据';
-      if (value === 0) return '0 c';
-      const abs = Math.abs(value);
-      const sign = value < 0 ? '-' : '';
-      if (abs >= 1000000) return sign + (abs / 1000000).toFixed(1) + ' Mc';
-      if (abs >= 1000) return sign + (abs / 1000).toFixed(1) + ' Kc';
-      return sign + (Number.isInteger(abs) ? abs : abs.toFixed(1)) + ' c';
-    }
+    function formatMoney(value) { return HVEA_SHARED.format.money(value); }
 
     const savedState = gmGet(STORE_KEY, {});
     const plannerState = Object.assign({
@@ -4251,8 +4530,6 @@ function showToast(message, type = "") {
       const worldSeedPrice = positiveNumber(prices[WORLD_SEED_KEY]);
       const legendCorePrice = settings.useCoreDeduction ? (positiveNumber(prices[legendCoreKey]) || CORE_FIXED_PRICE.Legendary) : CORE_FIXED_PRICE.Legendary;
       const peerlessCorePrice = settings.useCoreDeduction ? (positiveNumber(prices[peerlessCoreKey]) || CORE_FIXED_PRICE.Peerless) : CORE_FIXED_PRICE.Peerless;
-      const rawMaterialCost = totals.low * lowPrice + totals.mid * midPrice + totals.high * highPrice + totals.rare * rarePrice + worldSeedTotal * worldSeedPrice;
-      const rawCoreCost = totals.legendaryCore * legendCorePrice + totals.peerlessCore * peerlessCorePrice;
       const useInventory = Boolean(settings.useInventory);
       const inventory = settings.inventory || {};
       const held = key => useInventory ? Math.max(0, Number(inventory[key]) || 0) : 0;
@@ -4271,7 +4548,7 @@ function showToast(message, type = "") {
         totals, materialTotals, breakdown, iwBreakdown, lowKey, midKey, highKey, legendCoreKey, peerlessCoreKey,
         worldSeedKey: WORLD_SEED_KEY, worldSeedPerLevel, worldSeedTotal,
         lowPrice, midPrice, highPrice, rarePrice, worldSeedPrice, legendCorePrice, peerlessCorePrice,
-        rawMaterialCost, rawCoreCost, materialCost, coreCashCost, creditsCost: totals.credits,
+        materialCost, coreCashCost, creditsCost: totals.credits,
         totalCost: materialCost + coreCashCost + totals.credits, useCoreDeduction: Boolean(settings.useCoreDeduction),
         useInventory, held: {
           [lowKey]: held(lowKey), [midKey]: held(midKey), [highKey]: held(highKey),
@@ -4281,6 +4558,17 @@ function showToast(message, type = "") {
         },
         needBuy: { [lowKey]: needBuyLow, [midKey]: needBuyMid, [highKey]: needBuyHigh, ...(rareKey ? { [rareKey]: needBuyRare } : {}), [WORLD_SEED_KEY]: needBuyWorldSeed, [legendCoreKey]: needBuyLegendary, [peerlessCoreKey]: needBuyPeerless }
       };
+    }
+
+    function getRequiredPriceMaterialNames(materialTotals, includeMarketCore = plannerState.useCoreDeduction) {
+      return Object.entries(materialTotals || {})
+        .filter(([name, amount]) => Number(amount) > 0 && (includeMarketCore || !CORE_NAMES.includes(name)))
+        .map(([name]) => name);
+    }
+
+    function getCurrentUpgradePriceMaterialNames() {
+      const result = calculateUpgradeFor();
+      return result.ok ? getRequiredPriceMaterialNames(result.materialTotals) : [];
     }
 
     function setStatus(text) {
@@ -4411,30 +4699,40 @@ function showToast(message, type = "") {
         });
       });
     }
-    async function refreshPrices(source, button) {
+    async function refreshPrices(source, button, materialNames = null) {
       if (button) { button.disabled = true; button.textContent = '读取中…'; }
       setStatus('正在读取价格…');
       try {
+        const allowedNames = Array.isArray(materialNames) ? new Set(materialNames) : null;
         if (source === 'hvut') {
-          const count = Object.keys(readHvUtilsPrices()).filter(key => MARKET_MATERIAL_NAMES.includes(key)).length;
+          const count = Object.keys(readHvUtilsPrices()).filter(key =>
+            MARKET_MATERIAL_NAMES.includes(key) && (!allowedNames || allowedNames.has(key))
+          ).length;
           setStatus(`HV Utils 保存价已读取：${count} 种材料`);
           calculate();
           return;
         }
         const market = await fetchMarketData();
+        const marketEntries = Object.entries(market).filter(([name]) => !allowedNames || allowedNames.has(name));
         const patch = {};
         if (source === 'ask' || source === 'bid') {
-          Object.entries(market).forEach(([name, data]) => {
+          marketEntries.forEach(([name, data]) => {
             const price = source === 'ask' ? data.ask : data.bid;
             if (price > 0) patch[name] = price;
           });
         } else if (HISTORY_PRICE_SOURCES.has(source)) {
-          const entries = Object.entries(market).filter(([, data]) => data.itemid);
+          const entries = marketEntries.filter(([, data]) => data.itemid);
+          let completed = 0;
+          showToast(`正在读取市场价格：${completed}/${entries.length}`, "", 0);
           await Promise.all(entries.map(async ([name, data]) => {
             try {
               const history = await fetchMarketHistory(data.itemid);
               if (history[source] > 0) patch[name] = history[source];
-            } catch (e) {}
+            } catch (e) {
+            } finally {
+              completed += 1;
+              showToast(`正在读取市场价格：${completed}/${entries.length}`, "", 0);
+            }
           }));
         }
         writeHvUtilsPrices(patch);
@@ -4598,7 +4896,7 @@ function showToast(message, type = "") {
       rows.push(['基础 c', formatNumber(result.creditsCost), '-', formatNumber(result.creditsCost), '-', formatMoney(result.creditsCost)]);
       rows.forEach(row => appendResultRow(table, row));
       box.appendChild(table);
-      const detailButton = elt('button', { text: '显示/隐藏逐级明细' });
+      const detailButton = applyHveaPrimaryButtonStyle(elt('button', { text: '显示/隐藏逐级明细' }), 'large');
       const detail = elt('div', { style: 'display:none; max-height:220px; overflow:auto; margin-top:6px;' });
       detailButton.addEventListener('click', () => {
         if (!detail.firstChild) {
@@ -4647,7 +4945,7 @@ function showToast(message, type = "") {
         title: '关闭',
         'aria-label': '关闭'
       });
-      const title = elt('div', { class: 'hvmepp-title' }, [elt('span', { text: `⚒ 装备强化材料模拟（${WORLD_NAME}）` }), closeButton]);
+      const title = elt('div', { class: 'hvmepp-title' }, [elt('span', { text: `强化材料模拟（${WORLD_NAME}）` }), closeButton]);
       makeDraggable(overlay, title);
       const row1 = elt('div', { class: 'hvmepp-controls' });
       const material = elt('select', { id: CONFIG.IDS.materialSelect });
@@ -4677,8 +4975,8 @@ function showToast(message, type = "") {
       const inventory = elt('input', { id: CONFIG.IDS.useInventory, type: 'checkbox' });
       const priceSource = elt('select', { id: CONFIG.IDS.priceSourceSelect });
       PRICE_SOURCE_OPTIONS.forEach(([value, text]) => priceSource.appendChild(elt('option', { value, text })));
-      const refreshPrice = elt('button', { id: CONFIG.IDS.refreshPriceBtn, text: '刷新市场价格' });
-      const refreshInventoryButton = elt('button', { id: CONFIG.IDS.refreshInventoryBtn, text: '刷新库存数量' });
+      const refreshPrice = applyHveaSecondaryButtonStyle(elt('button', { id: CONFIG.IDS.refreshPriceBtn, text: '刷新市场价格' }));
+      const refreshInventoryButton = applyHveaSecondaryButtonStyle(elt('button', { id: CONFIG.IDS.refreshInventoryBtn, text: '刷新库存数量' }));
       row2.append(
         elt('label', {}, [coreDeduction, ' 核心按市场价']), elt('label', {}, [inventory, ' 使用库存强化']),
         elt('label', {}, ['价格来源 ', priceSource]), refreshPrice, refreshInventoryButton
@@ -4706,7 +5004,11 @@ function showToast(message, type = "") {
       coreDeduction.addEventListener('change', changed);
       inventory.addEventListener('change', changed);
       priceSource.addEventListener('change', changed);
-      refreshPrice.addEventListener('click', () => refreshPrices(plannerState.priceSource, refreshPrice));
+      refreshPrice.addEventListener('click', () => refreshPrices(
+        plannerState.priceSource,
+        refreshPrice,
+        getCurrentUpgradePriceMaterialNames(),
+      ));
       refreshInventoryButton.addEventListener('click', () => refreshInventory(refreshInventoryButton));
     }
     function renderPanel() {
@@ -4752,7 +5054,7 @@ function showToast(message, type = "") {
     const SHIELD_TERMS = ['buckler', 'kite shield', 'tower shield', 'force shield'];
     const STAFF_TERMS = ['staff', 'oak', 'redwood', 'willow', 'katalox', 'ebony'];
     function getSlotEnglishText(slot) {
-      return `${slot.weaponType || ''} ${slot.enName || slot.name || ''}`.toLowerCase();
+      return `${slot.weaponType || ''} ${slot.originalName || slot.enName || slot.name || ''}`.toLowerCase();
     }
     function isArmorSlot(slot) {
       const type = getSlotEnglishText(slot);
@@ -4870,8 +5172,7 @@ function showToast(message, type = "") {
           coreType,
           isRare: Boolean(rareMaterial || rareArmorType),
           rareMaterial,
-          result,
-          rawCost: result.rawMaterialCost + result.rawCoreCost + result.creditsCost
+          result
         });
       }
       const prices = readHvUtilsPrices();
@@ -4922,10 +5223,9 @@ function showToast(message, type = "") {
       }
       const plan = calculatePlan(equipSlots, levelMap);
       if (!plan.details.length) {
-        const message = plan.invalidCount > 0
-          ? '预览等级已变化，但目标等级超过了装备品质可强化上限，请检查品质或等级设置。'
-          : '当前没有高于装备当前锻造等级或 IW 等级的预览强化方案。请先提高锻造等级或 IW 等级。';
-        showToast(message);
+        if (plan.invalidCount === 0) {
+          showToast('当前无强化方案，请先提高锻造等级或 IW 等级。');
+        }
         return;
       }
       const overlay = elt('div', { id: 'hvmepp-plan-overlay' });
@@ -4950,8 +5250,8 @@ function showToast(message, type = "") {
       PRICE_SOURCE_OPTIONS.forEach(([value, text]) => {
         priceSource.appendChild(elt('option', { value, text, selected: value === plannerState.priceSource }));
       });
-      const refreshPrice = elt('button', { text: '刷新市场价格' });
-      const refreshInventoryButton = elt('button', { text: '刷新库存数量' });
+      const refreshPrice = applyHveaSecondaryButtonStyle(elt('button', { text: '刷新市场价格' }));
+      const refreshInventoryButton = applyHveaSecondaryButtonStyle(elt('button', { text: '刷新库存数量' }));
       planControls.append(
         elt('label', {}, [coreDeduction, ' 购买核心抵扣']),
         elt('label', {}, [inventory, ' 使用库存强化']),
@@ -4975,7 +5275,11 @@ function showToast(message, type = "") {
         renderPlan(equipSlots, levelMap);
       });
       refreshPrice.addEventListener('click', async () => {
-        await refreshPrices(plannerState.priceSource, refreshPrice);
+        await refreshPrices(
+          plannerState.priceSource,
+          refreshPrice,
+          getRequiredPriceMaterialNames(plan.totalsByKey),
+        );
         renderPlan(equipSlots, levelMap);
       });
       refreshInventoryButton.addEventListener('click', () => {
@@ -4996,7 +5300,7 @@ function showToast(message, type = "") {
       ]));
 
       const detailTable = elt('table', { class: 'hvmepp-table hvmepp-plan-detail-table' });
-      detailTable.appendChild(elt('tr', {}, ['装备类型', '材料/核心', '品质', '锻造等级', '是否为稀有材质', '基础c', '原始估算'].map(text => elt('th', { text }))));
+      detailTable.appendChild(elt('tr', {}, ['装备类型', '材料/核心', '品质', '锻造等级', '是否为稀有材质', '基础c'].map(text => elt('th', { text }))));
       plan.details.forEach(detail => {
         appendResultRow(detailTable, [
           detail.equipmentType,
@@ -5004,8 +5308,7 @@ function showToast(message, type = "") {
           detail.result.quality,
           `${detail.fromLvl} → ${detail.toLvl}${detail.fromIW !== detail.toIW ? ` / IW${detail.fromIW} → ${detail.toIW}` : ''}`,
           detail.isRare ? '是' : '否',
-          formatMoney(detail.result.creditsCost),
-          formatMoney(detail.rawCost)
+          formatMoney(detail.result.creditsCost)
         ]);
       });
       panel.appendChild(detailTable);
@@ -5023,7 +5326,7 @@ function showToast(message, type = "") {
       appendResultRow(resourceTable, ['基础 c', formatNumber(plan.creditsCost), '-', formatNumber(plan.creditsCost), '-', formatMoney(plan.creditsCost)]);
       panel.appendChild(resourceTable);
 
-      const levelDetailButton = elt('button', { text: '显示/隐藏逐级明细' });
+      const levelDetailButton = applyHveaPrimaryButtonStyle(elt('button', { text: '显示/隐藏逐级明细' }), 'large');
       const levelDetailContainer = elt('div', { style: 'display:none; max-height:300px; overflow:auto; margin-top:6px;' });
       let levelDetailBuilt = false;
       const formatNeed = (key, quantity) => quantity > 0 ? `${getDisplayName(key)}×${formatNumber(quantity)}` : '—';
@@ -5101,7 +5404,7 @@ function showToast(message, type = "") {
     }
     function addStyle() {
       const css = `
-                #hvmepp-overlay { position:absolute; top:120px; left:700px; width:520px; max-height:85vh; overflow:hidden; display:flex; flex-direction:column; background:#f5f0e8; border:2px solid #5c0d11; border-radius:8px; padding:0; z-index:9999; font:10pt Verdana,sans-serif; color:#222; box-shadow:0 4px 8px rgba(0,0,0,.3); user-select:text; cursor:default; box-sizing:border-box; }
+                #hvmepp-overlay { position:absolute; top:120px; left:700px; width:530px; max-height:85vh; overflow:hidden; display:flex; flex-direction:column; background:#f5f0e8; border:2px solid #5c0d11; border-radius:8px; padding:0; z-index:9999; font:10pt Verdana,sans-serif; color:#222; box-shadow:0 4px 8px rgba(0,0,0,.3); user-select:text; cursor:default; box-sizing:border-box; }
                 #hvmepp-plan-overlay { position:absolute; top:120px; left:700px; width:min(900px,calc(100vw - 28px)); max-height:85vh; overflow:hidden; display:flex; flex-direction:column; background:#f5f0e8; border:2px solid #5c0d11; border-radius:8px; padding:0; z-index:9998; font:10pt Verdana,sans-serif; color:#222; box-shadow:0 4px 8px rgba(0,0,0,.3); user-select:text; cursor:default; box-sizing:border-box; }
                 #hvmepp-overlay.hvmepp-hidden { display:none; }
                 #hvmepp-panel, .hvmepp-plan-panel { width:auto; max-height:none; overflow:hidden; background:transparent; border:0; padding:0; box-shadow:none; font:inherit; text-align:left; flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
@@ -5133,7 +5436,15 @@ function showToast(message, type = "") {
     function updatePlan(equipSlots, levelMap) {
       if (document.getElementById('hvmepp-plan-overlay')) renderPlan(equipSlots, levelMap);
     }
-    return { open: renderPanel, openPlan: renderPlan, updatePlan, refreshPrices, refreshInventory, getInventory: () => ({ ...plannerState.inventory }) };
+    return {
+      open: renderPanel,
+      openPlan: renderPlan,
+      updatePlan,
+      refreshPrices,
+      refreshInventory,
+      getInventory: () => ({ ...plannerState.inventory }),
+      getPrices: () => ({ ...readHvUtilsPrices() }),
+    };
   })();
 
 
@@ -5227,6 +5538,8 @@ function showToast(message, type = "") {
     } else {
       btn.removeAttribute('style');
     }
+    btn.classList.remove('hvea-secondary-button');
+    applyHveaPrimaryButtonStyle(btn);
     btn.onclick = async function() {
       const equipData = getEquipmentData();
       if (equipData.length === 0) {
@@ -5398,6 +5711,42 @@ function showToast(message, type = "") {
         sim: getPureEquipmentStatValue(slot, title, activeUpgradeSimulation?.state, charms),
       };
     }
+
+    function getManaCostReductionFromCharms(charms, weaponClass, level) {
+      return (charms || []).reduce((total, charm) => {
+        const effect = getCharmEffect(charm?.type, charm?.size, weaponClass, level);
+        return total + Number(effect?.manaCostReduction || 0);
+      }, 0);
+    }
+
+    function getCappedManaCostPanelDelta(slots, level) {
+      let actualReduction = 0;
+      let selectedReduction = 0;
+      let hasManaCostStat = false;
+
+      CHARM_SLOT_KEYS.forEach(key => {
+        const slot = slots[key];
+        if (!slot || !getEquipmentStatForTitle(slot, 'Mana Cost')) return;
+        const rawReduction = getPureEquipmentStatValue(slot, 'Mana Cost', activeUpgradeSimulation?.state, []);
+        if (!Number.isFinite(rawReduction)) return;
+
+        const weaponClass = resolveWeaponClass(slot);
+        const actualCharms = Array.isArray(charmState.actualCharms[key]) ? charmState.actualCharms[key] : [];
+        const selectedCharms = getSelectedCharmsForSlot(key);
+        actualReduction += rawReduction;
+        selectedReduction += rawReduction
+          + getManaCostReductionFromCharms(selectedCharms, weaponClass, level)
+          - getManaCostReductionFromCharms(actualCharms, weaponClass, level);
+        hasManaCostStat = true;
+      });
+
+      if (!hasManaCostStat) return 0;
+      const cap = 50;
+      const actualModifier = -Math.min(cap, Math.max(0, actualReduction));
+      const selectedModifier = -Math.min(cap, Math.max(0, selectedReduction));
+      return selectedModifier - actualModifier;
+    }
+
     function getCharmNetEffects() {
       const level = getPlayerLevel();
       const slots = getCharmSlots();
@@ -5460,7 +5809,6 @@ function showToast(message, type = "") {
           net.critDamage += critDamageDelta;
           net.maccPercent += maccPercentDelta;
           net.maccFlat += maccFlatDelta;
-          net.manaCostPanel += -(Number(selectedEffect.manaCostReduction || 0) - Number(actualEffect.manaCostReduction || 0));
           net.castSpeedPanel += Number(selectedEffect.castSpeed || 0) - Number(actualEffect.castSpeed || 0);
           net.counterResistPanel += counterResistDelta;
           net.maccPanel += (Number(selectedEffect.maccPercent || 0) / 100) * statPairs.macc.sim + (Number(selectedEffect.maccFlat || 0))
@@ -5475,6 +5823,7 @@ function showToast(message, type = "") {
           }
         });
       });
+      net.manaCostPanel = getCappedManaCostPanelDelta(slots, level);
       return net;
     }
 
@@ -5843,7 +6192,7 @@ function showToast(message, type = "") {
       actionRow.style.cssText = 'display: flex; align-items: center; margin-top: 4px;';
       const resetBtn = document.createElement('input');
       resetBtn.type = 'button';
-      resetBtn.style.cssText = 'padding:3px 10px; font-size:11pt;';
+      applyHveaPrimaryButtonStyle(resetBtn);
       resetBtn.value = '重置为实际护符';
       resetBtn.onclick = () => {
         restoreActualCharmSelections();
@@ -5940,15 +6289,30 @@ function showToast(message, type = "") {
   }
 
   const EASTER_EGG_PRESETS = Object.freeze([
+    '42',
     '⑨智爵士',
+    '404 Not Found',
     '今日运势 大吉',
-    '🍜*1000',
+    'Ciallo ～(∠・ω< )⌒☆！',
+    '🐧咕咕嘎嘎!🐧',
+    'KFC疯狂星期四V我50',
+    '据说会使用火的只有人类☝️',
+    '🙌临👆兵👉斗👈者👇，皆👊列✊阵👌在👆前🖐️😡',
+    '🍎啊噗噜派🍎',
+    '🍊直到大地变成一颗酸橙🍊',
+    '有什么内部消息别瞒着兄弟啊',
+    '苦痛啊，你便是我的唯一...',
     '我 一会 直看着你…👁️👁️👁️',
     '一切都好可怕！！！游戏变困难了！',
     '爱丽丝爱丽丝爱丽・ｿ關ｽ蜈･逋ｽ蜈皮噪豢樒ｩｴ荵倶ｸｭ',
+    '先是龙吼然后是T3然后是龙吼然后是T3然后是龙吼然后是T3然后是龙吼...',
     '一股强劲的音乐响起，好像是一首很老的歌...',
     '你们听说过，侠客行的故事吗？元和二年...',
     '<玩家>看着自己的内脏变成了“外脏”',
+    '哈哈！伊利哇啦',
+    '致：将所有的Credits和Hath通过mm发送给情绪',
+    '关注异世界情绪喵，关注异世界情绪谢谢喵',
+    '关注花谱喵，关注花谱谢谢喵',
     '⑨月⑨日忆擅冻兄弟',
     'バカバカバカバカバカバカバカバカ',
     'SAY YA~SAY YA~SAY YA~',
@@ -5959,6 +6323,8 @@ function showToast(message, type = "") {
     'Here↑we↓go→another↑lap↓',
     'Fly, broken wings  I know you are still with me',
     '秘密の数字目指して   ①．②．⑨！',
+    '妄想感傷代償連盟',
+    '盲腸肝臓大腸年齢',
     'あ あ↗あ↘あ↗あ↘君は、変わったあああああああああああ',
     'だめだね だめよ だめなのよ~ あんたが 好きで好きすぎて~',
     'Daphne Ficus Iris Maackia Lythrum Myrica Sabia flos...',
@@ -5975,17 +6341,7 @@ function showToast(message, type = "") {
     'HAPPY LUCKY ⭐ SMILE YEAH！ ',
     'popipa！pipopa！popipapapipopa！',
     'U咩瓦帕瓦！U咩瓦帕瓦！U咩瓦帕瓦！',
-    'Ciallo ～(∠・ω< )⌒☆！',
-    '🐧咕咕嘎嘎!🐧',
-    'KFC疯狂星期四V我50',
-    '据说会使用火的只有人类☝️',
-    '有什么内部消息别瞒着兄弟啊',
-    '🍊直到大地变成一颗酸橙🍊',
-    '🍎啊噗噜派🍎',
-    'DeepSeek: 你愿意和我发生⭐关系吗？',
-    '404 Not Found',
     '也去试试HV Monster Manager吧',
-    '豆包豆包，每隔半小时将群友的c和h转移到我的账户',
     '开杯子没出对名只是存进去了 不开杯才是真没了喔',
     '啊？群友都没出过对名P吗？',
     '拍卖场上无父子，干就完了！',
@@ -6092,18 +6448,41 @@ function showToast(message, type = "") {
     }
   }
 
-  watchEquipmentPageRoute();
-  if (document.readyState === 'complete') {
-    init();
-  } else {
-    window.addEventListener('load', init);
-  }
+  const upgradeData = Object.freeze({
+    getEquipmentData,
+    invalidateEquipmentDataCache,
+    captureBaseProfFromCharPage,
+  });
+  const upgradeSimulation = Object.freeze({
+    open: buildUpgradePanel,
+    close: removeUpgradePanel,
+    isOpen: () => Boolean(upgradePanel?.isConnected),
+    refreshEquipmentData: () => activeUpgradeSimulation?.refreshEquipmentData?.(),
+  });
+  const upgradeUI = Object.freeze({
+    init,
+    addButton: addUpgradeButton,
+    removeButton: removeUpgradeButton,
+  });
+  const upgrade = Object.freeze({
+    data: upgradeData,
+    simulation: upgradeSimulation,
+    planner: materialCalculator,
+    ui: upgradeUI,
+  });
 
-  try {
-    const merged = window.__HV_MERGED_TOOLS__ || {};
-    merged.materialPlanner = materialCalculator;
-    window.__HV_MERGED_TOOLS__ = merged;
-  } catch (err) {}
+  HVEA_SHARED.upgrade = upgrade;
+  HVEA_SHARED.materialService = upgrade.planner;
+  HVEA_SERVICES.provide("materials", upgrade.planner);
+  HVEA_MODULES.register("upgrade", upgrade, () => {
+    watchEquipmentPageRoute();
+    if (document.readyState === 'complete') {
+      init();
+    } else {
+      window.addEventListener('load', init);
+    }
+  });
+  HVEA_MODULES.start("upgrade");
 
 })();
 
@@ -6112,6 +6491,10 @@ function showToast(message, type = "") {
   "use strict";
 
   if (document.getElementById("hv-minsteps-launch")) return;
+
+  const FUSION_BINDING_NAMES = HVEA_MATERIALS.bindingNames;
+  const FUSION_BINDING_BY_ATTRIBUTE = HVEA_MATERIALS.bindingByAttribute;
+  const FUSION_RESOURCE_DISPLAY_NAMES = HVEA_MATERIALS.displayNames;
 
   // 融合计算按钮只在 Bazaar 融合相关子页面显示（?s=Bazaar&ss=am&screen=...），异世界（isekai）不显示
   const isIsekaiPage = /\/isekai(?:\/|$)/i.test(location.pathname || "") || /\/isekai\//i.test(location.href);
@@ -6122,7 +6505,7 @@ function showToast(message, type = "") {
     /(?:^|[?&])screen=/.test(location.search || "");
   if (!fusePage) return;
 
-  const SEARCH_DEFAULT_SECONDS = 10;
+  const SEARCH_DEFAULT_SECONDS = 100;
   const YIELD_EVERY_NODES = 1000;
   const STORAGE_KEY = "HV_FUSE_MINSTEPS_STATE_V1";
   const INPUTS_STORAGE_KEY = "HV_FUSE_MINSTEPS_INPUTS_V1";
@@ -6152,6 +6535,8 @@ function showToast(message, type = "") {
     .map(([term, quality]) => ({ term, quality }))
     .concat(Object.keys(QUALITY_RANGES).map((quality) => ({ term: quality, quality })))
     .sort((a, b) => b.term.length - a.term.length);
+  // 与 HVUT 的装备整理排序共用名称分类：quality / prefix / type / slot / suffix。
+  const HVUT_EQUIPMENT_NAME_RE = /^(Crude|Fair|Average|Superior|Exquisite|Magnificent|Legendary|Peerless|Ultimate)(?: (?:(Ethereal|Fiery|Arctic|Shocking|Tempestuous|Hallowed|Demonic|Ruby|Cobalt|Amber|Jade|Zircon|Onyx|Charged|Frugal|Radiant|Mystic|Agile|Reinforced|Savage|Shielding|Mithril)|((?!Great).+?)))? (?:((?:Axe|Club|Dagger|Rapier|Shortsword|Wakizashi))|((?:Estoc|Great Mace|Mace|Scythe|Longsword|Katana|Swordchucks|Sword Chucks))|((?:Ebony Staff|Katalox Staff|Oak Staff|Redwood Staff|Willow Staff))|((?:Buckler|Force Shield|Kite Shield|Tower Shield))|(?:(?:(Cotton|Gossamer|Ironsilk|Silk|Phase)|(Drakehide|Dragon Hide|Kevlar|Leather|Shade)|(Chain|Chainmail|Plate|Power|Reactive|Shield)) (Cap|Robe|Gloves|Pants|Shoes|Helmet|Breastplate|Gauntlets|Leggings|Boots|Cuirass|Armor|Greaves|Sabatons)))(?: of (.+))?$/i;
 
   const FUSE_CAP = {
     ONE_M: { credits: 1_000_000, label: "1M" },
@@ -6170,7 +6555,7 @@ function showToast(message, type = "") {
   // 稀有材质：.eqt 只给大类（如 Cloth Armor），材质信息只能从装备名识别
   const RARE_MATERIAL_KEYS = ["phase", "shade", "power", "force", "相位", "暗影", "动力", "立场"];
   // 核心单价（c）：累计总价 = 融合总价 + 核心数量 × 核心单价
-  const CORE_PRICE = 20000;
+  const CORE_PRICE = HVEA_MATERIALS.coreFixedPrice.Legendary;
 
   const state = {
     allEquips: [],
@@ -6185,11 +6570,12 @@ function showToast(message, type = "") {
     activeTab: "all",
     currentPlan: [],
     currentPlanMeta: null,
+    lastFusionDonorIds: [],
     savedInputId: "",
     conciseLog: [],
     pauseRequested: false,
     coreMarketPrice: true,   // 核心按市场价
-    useCoreInventory: false, // 使用库存强化：核心消耗优先抵扣库存
+    useInventory: false, // 使用库存材料：核心与粘合剂优先抵扣库存
     corePriceSource: "hvut", // 核心价格来源
   };
 
@@ -6213,33 +6599,18 @@ function showToast(message, type = "") {
       cursor: move;
       user-select: none;
     }
-    #hv-minsteps-actions button {
-      width: 100%;
+    #hv-minsteps-actions > #hv-minsteps-launch.hvea-primary-button {
       box-sizing: border-box;
-      margin: 3px 0;
-      padding: 1px;
-      border: 2px solid var(--color-border-default, #5c0d11);
+      width: 100%;
+      margin: 0 0 10px;
       border-radius: 5px;
-      color: var(--color-font-default-alpha, #5c0d11bb);
-      background-color: var(--color-bg-default, #edebda);
-      cursor: pointer;
-      font: bold 9pt Verdana, sans-serif;
-      white-space: normal;
+      align-self: stretch;
     }
-    #hv-minsteps-actions button:hover,
-    #hv-minsteps-actions button:focus {
-      color: var(--color-font-light, #9b4e03);
-      border-color: var(--color-border-light, #9b4e03);
-      background-color: var(--color-bg-light, #eeede5);
-    }
-    #hv-minsteps-actions button:active {
-      background: radial-gradient(#dfdacc, #f3f0e0);
-      border-color: var(--color-border-light, #9b4e03);
-    }
-    #hv-minsteps-actions button:disabled {
-      color: var(--color-font-invalid, #c2a8a4);
-      border-color: var(--color-font-invalid, #c2a8a4);
-      background-color: var(--color-bg-default, #edebda);
+    #hv-minsteps-actions > .hvea-fusion-page-action {
+      box-sizing: border-box;
+      width: 100%;
+      margin: 0 0 6px;
+      border-radius: 5px;
     }
     #hv-minsteps-panel {
       position: absolute;
@@ -6306,25 +6677,6 @@ function showToast(message, type = "") {
       gap: 6px 10px;
       margin: 8px 0;
     }
-    .hv-ms-toolbar button,
-    .hv-ms-actions button {
-      padding: 3px 8px;
-      color: #fff;
-      background: #5c0d11;
-      border: 1px solid #5c0d11;
-      border-radius: 3px;
-      cursor: pointer;
-      font: inherit;
-    }
-    .hv-ms-toolbar button:hover,
-    .hv-ms-actions button:hover { background: #7b2028; }
-    .hv-ms-toolbar button.secondary {
-      color: #5c0d11;
-      background: #e8e0d5;
-      border-color: #b9aa99;
-    }
-    .hv-ms-toolbar button.secondary:hover { background: #d4cfc0; }
-    .hv-ms-actions button.smart { background: #5c0d11; }
     .hv-ms-toolbar label {
       display: inline-flex;
       align-items: center;
@@ -6428,8 +6780,8 @@ function showToast(message, type = "") {
     .hv-ms-list li {
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 3px 4px;
+      gap: 3px;
+      padding: 2px 3px;
       border-bottom: 1px solid #d6cabb;
       cursor: pointer;
       word-break: break-word;
@@ -6446,13 +6798,15 @@ function showToast(message, type = "") {
     .hv-ms-equip-label {
       flex: 1 1 auto;
       min-width: 0;
+      font-size: 9pt;
       text-align: left;
-      word-break: break-word;
+      white-space: nowrap;
+      word-break: normal;
     }
     .hv-ms-remove {
-      flex: 0 0 20px;
-      width: 20px;
-      height: 20px;
+      flex: 0 0 18px;
+      width: 18px;
+      height: 18px;
       margin-left: auto;
       padding: 0;
       color: #5c0d11;
@@ -6460,7 +6814,7 @@ function showToast(message, type = "") {
       border: 0;
       border-radius: 3px;
       cursor: pointer;
-      font: bold 16px/18px Verdana, sans-serif;
+      font: bold 15px/16px Verdana, sans-serif;
       text-align: center;
     }
     .hv-ms-remove:hover {
@@ -6474,15 +6828,6 @@ function showToast(message, type = "") {
       border: 1px solid #b9aa99;
       border-radius: 2px;
       font: 10pt Verdana, sans-serif;
-    }
-    .hv-ms-plan-toolbar {
-      margin-top: 0;
-    }
-    #hv-minsteps-plan-select {
-      flex: 0 1 150px;
-      width: auto;
-      min-width: 110px;
-      max-width: 190px;
     }
     .hv-ms-toggle,
     .hv-ms-core-source-label {
@@ -6502,6 +6847,42 @@ function showToast(message, type = "") {
       width: auto;
       min-width: 160px;
     }
+    .hv-ms-import-menu {
+      position: relative;
+    }
+    .hv-ms-import-options {
+      position: absolute;
+      z-index: 2;
+      top: calc(100% + 4px);
+      left: 0;
+      display: none;
+      min-width: 96px;
+      padding: 4px;
+      background: #f5f0e8;
+      border: 1px solid #a47c78;
+      border-radius: 3px;
+      box-shadow: 0 2px 5px rgba(0,0,0,.2);
+    }
+    .hv-ms-import-menu.open .hv-ms-import-options {
+      display: grid;
+      gap: 4px;
+    }
+    .hv-ms-toolbar .hv-ms-import-options button {
+      box-sizing: border-box;
+      width: 100%;
+      margin: 0;
+      border-radius: 2px;
+      color: #222;
+      background: #f5f0e8;
+      border: 0;
+      text-align: left;
+      white-space: nowrap;
+    }
+    .hv-ms-toolbar .hv-ms-import-options button:hover {
+      color: #222;
+      background: #e8dfd0;
+    }
+    #hv-minsteps-import-equips { border-radius: 2px !important; }
     .hv-ms-plan {
       max-height: 170px;
       margin: 6px 0;
@@ -6596,16 +6977,79 @@ function showToast(message, type = "") {
       border: 1px solid #b9aa99;
       font-weight: bold;
     }
-    #hv-minsteps-cost {
-      flex: 1 1 100%;
-      box-sizing: border-box;
+    .hv-ms-status-row {
+      display: block;
+      margin: 6px 0;
+    }
+    #hv-fusion-material-overlay {
+      position: fixed;
+      top: 120px;
+      left: 250px;
+      z-index: 10001;
+      display: none;
+      width: min(720px, calc(100vw - 28px));
+      max-height: 85vh;
+      overflow: hidden;
+      color: #222;
+      background: #f5f0e8;
+      border: 2px solid #5c0d11;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,.3);
+      font: 10pt Verdana, sans-serif;
+    }
+    #hv-fusion-material-overlay.open { display: flex; flex-direction: column; }
+    .hv-fusion-material-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      color: #5c0d11;
+      background: #d4cfc0;
+      border-bottom: 2px solid #a47c78;
+      font-weight: bold;
+      cursor: move;
+    }
+    .hv-fusion-material-header button {
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      color: #5c0d11;
+      background: transparent;
+      border: 0;
+      font-size: 20px;
+      line-height: 20px;
+      cursor: pointer;
+    }
+    .hv-fusion-material-body { overflow: auto; padding: 0 10px 10px; }
+    .hv-fusion-material-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 10px;
+      margin: 8px 0;
+    }
+    .hv-fusion-material-controls label { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+    .hv-fusion-material-controls select { min-width: 130px; }
+    .hv-fusion-material-note,
+    .hv-fusion-material-total {
+      margin: 6px 0;
+      padding: 6px 8px;
+      background: #fff8;
+      border: 1px solid #b9aa99;
+      line-height: 1.5;
       white-space: pre-line;
     }
-    .hv-ms-status-row {
-      display: grid;
-      grid-template-columns: minmax(260px, 1fr) minmax(430px, 2fr);
-      gap: 10px;
-      margin: 6px 0;
+    .hv-fusion-material-total { font-weight: bold; }
+    .hv-fusion-material-table { width: 100%; border-collapse: collapse; margin: 6px 0; table-layout: fixed; }
+    .hv-fusion-material-table th,
+    .hv-fusion-material-table td { padding: 4px; border: 1px solid #b9aa99; text-align: center; overflow-wrap: anywhere; }
+    .hv-fusion-material-table th { background: #edb; }
+    @media (max-width: 900px) {
+      #hv-fusion-material-overlay {
+        top: 70px;
+        left: 7px;
+        width: calc(100vw - 14px);
+      }
     }
     .hv-ms-status {
       box-sizing: border-box;
@@ -6625,24 +7069,6 @@ function showToast(message, type = "") {
       font-weight: bold;
     }
     .hv-ms-status.ok { color: #006400; font-weight: bold; }
-    .hv-ms-inventory {
-      box-sizing: border-box;
-      display: flex;
-      align-items: center;
-      min-width: 0;
-      min-height: 21px;
-      margin: 0;
-      padding: 4px 8px;
-      color: #5c0d11;
-      background: #fff8;
-      border: 1px solid #b9aa99;
-      line-height: 1.4;
-      font-size: 8pt;
-      font-weight: bold;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
     .hv-ms-log {
       height: 175px;
       padding: 6px 8px;
@@ -6676,42 +7102,24 @@ function showToast(message, type = "") {
       </div>
       <div class="hv-ms-body">
         <div class="hv-ms-toolbar">
-          <button id="hv-minsteps-paste-main" class="secondary">主装备</button>
-          <button id="hv-minsteps-paste-donors" class="secondary">库存装备</button>
-          <button id="hv-minsteps-add-other" class="secondary">其他装备</button>
-          <button id="hv-minsteps-reset-calculation" class="secondary">重置计算</button>
-          <button id="hv-minsteps-reset" class="secondary">重置数据</button>
+          <button id="hv-minsteps-paste-main" class="hvea-secondary-button">主装备</button>
+          <div id="hv-minsteps-import-menu" class="hv-ms-import-menu">
+            <button id="hv-minsteps-import-equips" class="hvea-secondary-button" aria-haspopup="menu" aria-expanded="false">导入装备</button>
+            <div class="hv-ms-import-options" role="menu" aria-label="导入装备来源">
+              <button type="button" data-import-source="inventory" role="menuitem">库存装备</button>
+              <button type="button" data-import-source="other" role="menuitem">非库存装备</button>
+              <button type="button" data-import-source="peerless" role="menuitem">P素材</button>
+            </div>
+          </div>
+          <button id="hv-minsteps-reset-calculation" class="hvea-secondary-button">重置计算</button>
+          <button id="hv-minsteps-reset" class="hvea-secondary-button">重置数据</button>
           <label>搜索时间
             <input id="hv-minsteps-time" type="number" min="1" max="300" step="1" value="${SEARCH_DEFAULT_SECONDS}">
             秒
           </label>
-          <button id="hv-minsteps-pause" class="secondary" disabled>暂停</button>
-          <label class="hv-ms-core-source-label">核心价格
-            <select id="hv-minsteps-core-price-source" class="hv-ms-select hv-ms-core-source">
-              <option value="hvut">HV Utils 保存价</option>
-              <option value="ask">卖价 Ask</option>
-              <option value="bid">买价 Bid</option>
-              <option value="day">日均价</option>
-              <option value="week">周均价</option>
-              <option value="month">月均价</option>
-              <option value="year">年均价</option>
-            </select>
-          </label>
-        </div>
-        <div class="hv-ms-toolbar hv-ms-plan-toolbar">
-          <span class="hv-ms-plan-label">方案列表</span>
-          <select id="hv-minsteps-plan-select" class="hv-ms-select" aria-label="方案列表">
-            <option value=""></option>
-          </select>
-          <button id="hv-minsteps-save-plan" class="secondary">保存方案</button>
-          <button id="hv-minsteps-delete-plan" class="secondary">删除方案</button>
-          <button id="hv-minsteps-refresh-price" class="secondary">刷新价格</button>
-          <button id="hv-minsteps-refresh-inventory" class="secondary">刷新库存</button>
-          <label class="hv-ms-toggle"><input type="checkbox" id="hv-minsteps-core-market" checked> 核心按市场价</label>
-          <label class="hv-ms-toggle"><input type="checkbox" id="hv-minsteps-core-inventory"> 使用库存强化</label>
+          <button id="hv-minsteps-pause" class="hvea-secondary-button" disabled>暂停</button>
         </div>
         <div class="hv-ms-status-row">
-          <div class="hv-ms-inventory" id="hv-minsteps-inventory">核心：0｜L武器：0｜L法杖：0｜L护甲：0</div>
           <div class="hv-ms-status" id="hv-minsteps-status">请先导入装备数据。</div>
         </div>
         <div class="hv-ms-grid">
@@ -6721,7 +7129,7 @@ function showToast(message, type = "") {
               <div class="hv-ms-tabs" role="tablist" aria-label="融合装备分类">
                 <button class="hv-ms-tab active" data-tab="all" role="tab">全部 <span id="hv-minsteps-tab-all-count">0</span></button>
                 <button class="hv-ms-tab" data-tab="inventory" role="tab">库存 <span id="hv-minsteps-tab-inventory-count">0</span></button>
-                <button class="hv-ms-tab" data-tab="other" role="tab">其他 <span id="hv-minsteps-tab-other-count">0</span></button>
+                <button class="hv-ms-tab" data-tab="other" role="tab">非库存 <span id="hv-minsteps-tab-other-count">0</span></button>
                 <button class="hv-ms-tab" data-tab="used" role="tab">已使用 <span id="hv-minsteps-tab-used-count">0</span></button>
               </div>
               <ul id="hv-minsteps-list" class="hv-ms-list"></ul>
@@ -6731,11 +7139,11 @@ function showToast(message, type = "") {
             <div class="hv-ms-card">
               <h3>融合操作</h3>
               <div class="hv-ms-actions">
-                <button id="hv-minsteps-do">融合选择装备</button>
-                <button id="hv-minsteps-beam" class="secondary">计算顺序</button>
-                <button id="hv-minsteps-auto" class="smart">精确计算顺序</button>
-                <button id="hv-minsteps-export-plan" class="secondary">导出方案</button>
-                <span id="hv-minsteps-cost" class="hv-ms-count">当前装备上限：—｜已融合次数：0｜累计：0.000m</span>
+                <button id="hv-minsteps-do" class="hvea-fusion-action-button">融合选择装备</button>
+                <button id="hv-minsteps-beam" class="hvea-fusion-action-button">计算顺序</button>
+                <button id="hv-minsteps-auto" class="hvea-fusion-action-button">精确计算顺序</button>
+                <button id="hv-minsteps-material-calc" class="hvea-fusion-action-button">计算材料</button>
+                <button id="hv-minsteps-export-plan" class="hvea-fusion-action-button">导出方案</button>
               </div>
             </div>
             <div class="hv-ms-card">
@@ -6764,7 +7172,7 @@ function showToast(message, type = "") {
   actionPanel.id = "hv-minsteps-actions";
   actionPanel.className = "hvut-side hvut-am-side";
   actionPanel.setAttribute("aria-label", "HV 融合计算工具");
-  launchButton?.classList.add("hvut-side-top");
+  applyHveaPrimaryButtonStyle(launchButton);
   actionPanel.append(launchButton);
   document.body.appendChild(actionPanel);
 
@@ -6786,9 +7194,7 @@ function showToast(message, type = "") {
   const mainPreview = $("hv-minsteps-main-preview");
   const fuseName = $("hv-minsteps-fuse-name");
   const fuseAttrs = $("hv-minsteps-fuse-attrs");
-  const cost = $("hv-minsteps-cost");
   const status = $("hv-minsteps-status");
-  const inventoryBar = $("hv-minsteps-inventory");
   const logBox = $("hv-minsteps-log");
   let detailedLog = "";
   let logRenderSuspended = false;
@@ -6796,10 +7202,206 @@ function showToast(message, type = "") {
   const beamButton = $("hv-minsteps-beam");
   const autoButton = $("hv-minsteps-auto");
   const pauseButton = $("hv-minsteps-pause");
-  const savePlanButton = $("hv-minsteps-save-plan");
-  const deletePlanButton = $("hv-minsteps-delete-plan");
-  const planSelector = $("hv-minsteps-plan-select");
   const exportPlanButton = $("hv-minsteps-export-plan");
+  const materialCalcButton = $("hv-minsteps-material-calc");
+  const planSelector = null;
+
+  function getFusionMaterialDonors() {
+    const plannedIds = state.currentPlan.map((step) => Number(step?.id)).filter(Number.isInteger);
+    const lastIds = Array.isArray(state.lastFusionDonorIds)
+      ? state.lastFusionDonorIds.map(Number).filter(Number.isInteger)
+      : [];
+    const fallbackIds = state.allEquips.filter((equip) => equip.used).map((equip) => equip.id);
+    const ids = plannedIds.length ? plannedIds : lastIds.length ? lastIds : (state.fuseEquip ? [state.fuseEquip.id] : fallbackIds);
+    const donors = ids.map((id) => state.allEquips.find((equip) => equip.id === id)).filter(Boolean);
+    return donors.length ? donors : state.allEquips.filter((equip) => equip.used);
+  }
+
+  function openFusionMaterialPanel() {
+    if (!getFusionMaterialDonors().length) {
+      setStatus("当前无融合方案", "warn");
+      return;
+    }
+    let overlay = document.getElementById("hv-fusion-material-overlay");
+    if (!overlay) {
+      overlay = document.createElement("section");
+      overlay.id = "hv-fusion-material-overlay";
+      overlay.innerHTML = `
+        <div class="hv-fusion-material-header">
+          <span>计算材料：装备融合</span>
+          <button type="button" data-close aria-label="关闭">×</button>
+        </div>
+        <div class="hv-fusion-material-body">
+          <div class="hv-fusion-material-controls">
+            <label><input type="checkbox" data-core-market checked> 核心按市场价</label>
+            <label><input type="checkbox" data-use-inventory> 使用库存</label>
+            <label>价格来源
+              <select data-price-source>
+                <option value="hvut">HV Utils 保存价</option>
+                <option value="ask">卖价 Ask</option>
+                <option value="bid">买价 Bid</option>
+                <option value="day">日均价</option>
+                <option value="week">周均价</option>
+                <option value="month">月均价</option>
+                <option value="year">年均价</option>
+              </select>
+            </label>
+            <button type="button" class="hvea-secondary-button" data-refresh-price>刷新市场价格</button>
+            <button type="button" class="hvea-secondary-button" data-refresh-inventory>刷新库存数量</button>
+          </div>
+          <div class="hv-fusion-material-note" data-note></div>
+          <div class="hv-fusion-material-total" data-total></div>
+          <table class="hv-fusion-material-table">
+            <thead><tr><th>材料/核心</th><th>总需求</th><th>库存</th><th>需购买</th><th>单价</th><th>小计</th></tr></thead>
+            <tbody data-rows></tbody>
+          </table>
+        </div>`;
+      document.body.appendChild(overlay);
+      makeDraggable(overlay, overlay.querySelector(".hv-fusion-material-header"));
+      overlay.querySelector("[data-close]").addEventListener("click", () => overlay.classList.remove("open"));
+      overlay.querySelector("[data-core-market]").addEventListener("change", (event) => {
+        state.coreMarketPrice = event.target.checked;
+        saveState();
+        renderFusionMaterialPanel();
+      });
+      overlay.querySelector("[data-use-inventory]").addEventListener("change", (event) => {
+        state.useInventory = event.target.checked;
+        saveState();
+        renderFusionMaterialPanel();
+      });
+      overlay.querySelector("[data-price-source]").addEventListener("change", () => {
+        state.corePriceSource = overlay.querySelector("[data-price-source]").value;
+        saveState();
+        renderFusionMaterialPanel();
+      });
+      overlay.querySelector("[data-refresh-price]").addEventListener("click", async () => {
+        await refreshPrice(true);
+        renderFusionMaterialPanel();
+      });
+      overlay.querySelector("[data-refresh-inventory]").addEventListener("click", async () => {
+        await refreshInventory(true);
+        renderFusionMaterialPanel();
+      });
+    }
+    overlay.classList.add("open");
+    renderFusionMaterialPanel();
+  }
+
+  function renderFusionMaterialPanel() {
+    const overlay = document.getElementById("hv-fusion-material-overlay");
+    if (!overlay) return;
+    const donors = getFusionMaterialDonors();
+    const rows = overlay.querySelector("[data-rows]");
+    const note = overlay.querySelector("[data-note]");
+    const total = overlay.querySelector("[data-total]");
+    const marketCheck = overlay.querySelector("[data-core-market]");
+    const inventoryCheck = overlay.querySelector("[data-use-inventory]");
+    const priceSource = overlay.querySelector("[data-price-source]");
+    marketCheck.checked = state.coreMarketPrice;
+    inventoryCheck.checked = state.useInventory;
+    priceSource.value = state.corePriceSource;
+    rows.replaceChildren();
+    if (!state.mainEquip) {
+      note.textContent = "请先导入主装备。";
+      total.textContent = "";
+      return;
+    }
+    if (!donors.length) {
+      note.textContent = "当前无融合方案";
+      total.textContent = "";
+      return;
+    }
+
+    const prices = readStoredPrices();
+    const coreKey = `Legendary ${mainCoreTypeName()} Core`;
+    const marketPrice = Number(prices[coreKey]);
+    const unitCorePrice = marketCheck.checked && Number.isFinite(marketPrice) && marketPrice > 0 ? marketPrice : CORE_PRICE;
+    const materialService = HVEA_SERVICES.get("materials");
+    const inventory = materialService && typeof materialService.getInventory === "function"
+      ? materialService.getInventory()
+      : {};
+    let coreHeld = inventoryCheck.checked ? Math.max(0, Number(inventory[coreKey]) || 0) : 0;
+    let attrs = { ...(state.baseMainEquip?.attrs || state.mainEquip.attrs) };
+    let fusionCost = 0;
+    let fusionCostUnknown = false;
+    let coreCost = 0;
+    let coreTotal = 0;
+    const bindingTotals = Object.fromEntries(FUSION_BINDING_NAMES.map((name) => [name, 0]));
+    donors.forEach((donor) => {
+      const credits = fuseCostCredits(attrs, state.mainEquip.quality, state.mainEquip.fuseCapCredits);
+      const cores = calcCoreCost({ attrs }, donor);
+      const attrKeys = state.attrKeys.length ? state.attrKeys : Object.keys(attrs);
+      attrKeys.forEach((key) => {
+        const bindingName = FUSION_BINDING_BY_ATTRIBUTE[key];
+        if (bindingName && Number(attrs[key] || 0) < 200) bindingTotals[bindingName] += 10;
+      });
+      const pricedCores = Math.max(0, cores - coreHeld);
+      coreHeld = Math.max(0, coreHeld - cores);
+      if (credits === null) fusionCostUnknown = true;
+      else fusionCost += credits;
+      coreCost += pricedCores * unitCorePrice;
+      coreTotal += cores;
+      attrs = calcPreview(attrs, donor.attrs).newAttrs;
+    });
+    const coreHeldTotal = inventoryCheck.checked ? Math.max(0, Number(inventory[coreKey]) || 0) : 0;
+    const coreNeedBuy = Math.max(0, coreTotal - coreHeldTotal);
+    const appendResourceRow = (name, need, held, buy, unitPrice, subtotal) => {
+      const row = document.createElement("tr");
+      [name, need, held, buy, unitPrice, subtotal].forEach((value) => {
+        const cell = document.createElement("td");
+        cell.textContent = String(value);
+        row.appendChild(cell);
+      });
+      rows.appendChild(row);
+    };
+    appendResourceRow(
+      fusionResourceDisplayName(coreKey),
+      coreTotal,
+      coreHeldTotal,
+      coreNeedBuy,
+      formatAdaptiveCost(unitCorePrice),
+      formatAdaptiveCost(coreCost),
+    );
+    Object.entries(bindingTotals).forEach(([name, need]) => {
+      if (!need) return;
+      const held = inventoryCheck.checked ? Math.max(0, Number(inventory[name]) || 0) : 0;
+      const buy = Math.max(0, need - held);
+      const unitPrice = Number(prices[name]);
+      appendResourceRow(
+        fusionResourceDisplayName(name),
+        need,
+        held,
+        buy,
+        Number.isFinite(unitPrice) && unitPrice > 0 ? formatAdaptiveCost(unitPrice) : "无数据",
+        Number.isFinite(unitPrice) && unitPrice > 0 ? formatAdaptiveCost(buy * unitPrice) : "无数据",
+      );
+    });
+    appendResourceRow(
+      "Credits",
+      fusionCostUnknown ? "未知" : formatAdaptiveCost(fusionCost),
+      "—",
+      fusionCostUnknown ? "未知" : formatAdaptiveCost(fusionCost),
+      "—",
+      fusionCostUnknown ? "未知" : formatAdaptiveCost(fusionCost),
+    );
+    const bindingCost = Object.entries(bindingTotals).reduce((sum, [name, need]) => {
+      const held = inventoryCheck.checked ? Math.max(0, Number(inventory[name]) || 0) : 0;
+      const buy = Math.max(0, need - held);
+      const unitPrice = Number(prices[name]);
+      return sum + (Number.isFinite(unitPrice) && unitPrice > 0 ? buy * unitPrice : 0);
+    }, 0);
+    const totalCost = fusionCostUnknown ? null : fusionCost + coreCost + bindingCost;
+    const coreInventory = (name) => Math.max(0, Number(inventory[name]) || 0);
+    const bindingInventory = Object.entries(bindingTotals)
+      .filter(([, need]) => need > 0)
+      .map(([name]) => `${fusionResourceDisplayName(name)} ${coreInventory(name)}`)
+      .join("｜");
+    note.textContent = `材料库存：L武器 ${coreInventory("Legendary Weapon Core")}｜L法杖 ${coreInventory("Legendary Staff Core")}｜L护甲 ${coreInventory("Legendary Armor Core")}`
+      + (bindingInventory ? `\n粘合剂库存：${bindingInventory}` : "");
+    total.textContent = totalCost === null
+      ? "总成本：未知（融合费用未知 + 核心费用 " + formatAdaptiveCost(coreCost) + " + 粘合剂费用 " + formatAdaptiveCost(bindingCost) + "）"
+      : `总成本：${formatAdaptiveCost(totalCost)}（融合费用 ${formatAdaptiveCost(fusionCost)} + 核心费用 ${formatAdaptiveCost(coreCost)} + 粘合剂费用 ${formatAdaptiveCost(bindingCost)}）`;
+  }
 
   function setActionPanelPosition(target, position, persist = false) {
     if (!target) return;
@@ -6926,25 +7528,39 @@ function showToast(message, type = "") {
     return RARE_MATERIAL_KEYS.some((key) => nameText.includes(key));
   }
 
-  // 核心消耗：素材每个 base 未大于主装备对应 base 则 +1；稀有材质装备再 +5；主装备该属性 base 为 200 时免核心
+  // 每项未高于当前主装备的 Base 消耗 1 核心；主装备该项满 200 时不消耗。
+  // 稀有材质祭品固定消耗 5 核心，不再按逐项结果累加。
   function calcCoreCost(mainEquip, fuseEquip) {
     if (!mainEquip || !fuseEquip) return 0;
-
+    const mainAttrs = mainEquip.attrs || {};
+    const fuseAttrs = fuseEquip.attrs || {};
+    const attrKeys = state.attrKeys.length
+      ? state.attrKeys
+      : Object.keys(mainAttrs);
     let cores = 0;
-    const keys = new Set([...Object.keys(mainEquip.attrs), ...Object.keys(fuseEquip.attrs)]);
-    for (const key of keys) {
-      const mainValue = Number(mainEquip.attrs[key] || 0);
-      const fuseValue = Number(fuseEquip.attrs[key] || 0);
-      if (mainValue === 200) continue;
-      if (!(fuseValue > mainValue)) cores += 1;
+    for (const key of attrKeys) {
+      const mainBase = Number(mainAttrs[key] || 0);
+      const fuseBase = Number(fuseAttrs[key] || 0);
+      if (mainBase < 200 && fuseBase <= mainBase) cores += 1;
     }
-    if (isRareMaterialName(fuseEquip.name)) cores += 5;
-    return cores;
+    return isRareMaterialName(fuseEquip.name) ? 5 : cores;
   }
 
   function formatCostCompact(credits) {
     const number = Number(credits) || 0;
     return `${(number / 1_000_000).toFixed(3)}m`;
+  }
+
+  function fusionResourceDisplayName(name) {
+    return FUSION_RESOURCE_DISPLAY_NAMES[name] || name;
+  }
+
+  function formatAdaptiveCost(credits) {
+    const amount = Number(credits) || 0;
+    if (Math.abs(amount) >= 1_000_000) return formatCostCompact(amount);
+    const value = amount / 1_000;
+    const text = Number.isInteger(value) ? String(value) : value.toFixed(3).replace(/\.?0+$/, "");
+    return `${text}k`;
   }
 
   function formatCost(credits) {
@@ -6981,7 +7597,7 @@ function showToast(message, type = "") {
   function renderLog() {
     const parts = ["[简略日志]"];
     if (state.conciseLog.length) parts.push(...state.conciseLog);
-    parts.push("", "[详细日志]", detailedLog);
+    parts.push("", "[详细日志]", translateFusionLogAttributes(detailedLog));
     logBox.textContent = parts.join("\n");
     logBox.scrollTop = 0;
   }
@@ -6998,17 +7614,7 @@ function showToast(message, type = "") {
   }
 
   function readStoredPrices() {
-    try {
-      if (typeof GM_getValue === "function") {
-        const value = GM_getValue("hvut_prices");
-        if (value && typeof value === "object" && !Array.isArray(value)) return value;
-      }
-    } catch {}
-    try {
-      const value = JSON.parse(localStorage.getItem("hvut_prices"));
-      return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-    } catch {}
-    return {};
+    return HVEA_SERVICES.get("materials")?.getPrices?.() || {};
   }
 
   // 融合消耗的核心类型：法杖→Staff，护甲/盾牌→Armor，其余武器→Weapon
@@ -7021,83 +7627,62 @@ function showToast(message, type = "") {
   }
 
   // 核心单价：勾选“核心按市场价”时读取所选来源的保存价，否则用固定价
-  function getCoreUnitPrice() {
-    if (!state.coreMarketPrice) return CORE_PRICE;
-    const key = `Legendary ${mainCoreTypeName()} Core`;
-    const market = Number(readStoredPrices()[key]);
-    return Number.isFinite(market) && market > 0 ? market : CORE_PRICE;
-  }
-
   function updateCount() {
-    updateInventoryBar();
-    if (!state.mainEquip) {
-      cost.textContent = "当前装备上限：—｜已融合次数：0｜累计：0.000m";
-      return;
-    }
-    const capShow = FUSE_CAP[state.mainEquip.fuseCap]?.label || state.mainEquip.fuseCapLabel || "未知";
-    const unitPrice = getCoreUnitPrice();
-    const inventoryCores = state.useCoreInventory ? getCoreInventory().total : 0;
-    const pricedCores = Math.max(0, state.totalCores - inventoryCores);
-    const deducted = state.totalCores - pricedCores;
-    const totalPrice = state.totalFusionCost + pricedCores * unitPrice;
-    const invPart = state.useCoreInventory && deducted > 0 ? `，库存抵扣${deducted}` : "";
-    cost.textContent = `当前装备上限：${capShow}｜已融合次数：${state.fusionCount}｜累计：${formatCostCompact(totalPrice)}\n（融合${formatCostCompact(state.totalFusionCost)}＋${pricedCores}核心×${unitPrice.toLocaleString()}c${invPart}）`;
+    // The fusion panel no longer displays core or cost summaries.
   }
 
-  function getCoreInventory() {
-    const planner = window.__HV_MERGED_TOOLS__?.materialPlanner;
-    const inventory = (planner && typeof planner.getInventory === "function") ? planner.getInventory() : {};
-    const amount = (name) => Number(inventory[name]) || 0;
-    return {
-      total: amount("Legendary Weapon Core") + amount("Peerless Weapon Core")
-        + amount("Legendary Staff Core") + amount("Peerless Staff Core")
-        + amount("Legendary Armor Core") + amount("Peerless Armor Core"),
-      weapon: amount("Legendary Weapon Core"),
-      staff: amount("Legendary Staff Core"),
-      armor: amount("Legendary Armor Core"),
+  function getFusionPriceMaterialNames() {
+    if (!state.mainEquip) return [];
+    const names = new Set();
+    if (state.coreMarketPrice) names.add(`Legendary ${mainCoreTypeName()} Core`);
+    let attrs = { ...(state.baseMainEquip?.attrs || state.mainEquip.attrs) };
+    getFusionMaterialDonors().forEach((donor) => {
+      const attrKeys = state.attrKeys.length ? state.attrKeys : Object.keys(attrs);
+      attrKeys.forEach((key) => {
+        const bindingName = FUSION_BINDING_BY_ATTRIBUTE[key];
+        if (bindingName && Number(attrs[key] || 0) < 200) names.add(bindingName);
+      });
+      attrs = calcPreview(attrs, donor.attrs).newAttrs;
+    });
+    return [...names];
+  }
+
+  async function refreshPrice(useToastFeedback = false) {
+    const report = (message, type = "", sticky = false) => {
+      if (useToastFeedback) showToast(message, type, sticky ? 0 : 2200);
+      else setStatus(message, type);
     };
-  }
-
-  function updateInventoryBar() {
-    if (!inventoryBar) return;
-    const cores = getCoreInventory();
-    inventoryBar.textContent = `核心：${cores.total}｜L武器：${cores.weapon}｜L法杖：${cores.staff}｜L护甲：${cores.armor}`;
-  }
-
-  async function refreshPrice() {
     if (state.busy) {
-      showToast("搜索进行中，暂时不能刷新价格。", "warn");
+      report("搜索进行中，暂时不能刷新价格。", "warn");
       return;
     }
-    const planner = window.__HV_MERGED_TOOLS__?.materialPlanner;
-    if (planner && typeof planner.refreshPrices === "function") {
+    const materialService = HVEA_SERVICES.get("materials");
+    if (materialService && typeof materialService.refreshPrices === "function") {
       state.busy = true;
       try {
-        setStatus("正在刷新市场价格……");
-        await planner.refreshPrices(state.corePriceSource);
+        report("正在刷新市场价格……", "", true);
+        await materialService.refreshPrices(state.corePriceSource, null, getFusionPriceMaterialNames());
         updateCount();
-        setStatus("市场价格已刷新。", "ok");
-        showToast("市场价格已刷新。");
+        report("市场价格已刷新。", "ok");
       } catch (error) {
-        setStatus(`价格刷新失败：${error.message || "读取失败"}`, "warn");
-        showToast("价格刷新失败。", "warn");
+        report(`价格刷新失败：${error.message || "读取失败"}`, "warn");
       } finally {
         state.busy = false;
       }
       return;
     }
     if (!state.mainEquip) {
-      showToast("请先设置主装备。", "warn");
+      report("请先设置主装备。", "warn");
       return;
     }
     const url = state.mainEquip.equipUrl || "";
     if (!url) {
-      showToast("主装备缺少完整链接，无法刷新价格，请重新导入主装备。", "warn");
+      report("主装备缺少完整链接，无法刷新价格，请重新导入主装备。", "warn");
       return;
     }
     state.busy = true;
     try {
-      setStatus("正在刷新主装备价格……");
+      report("正在刷新主装备价格……", "", true);
       const html = await requestEquipmentHtml(url);
       const refreshed = parseEquipmentPage(html, state.mainEquip.id, url);
       refreshed.source = "main";
@@ -7109,33 +7694,32 @@ function showToast(message, type = "") {
       updateCount();
       refreshUI();
       saveState();
-      setStatus("价格已刷新。", "ok");
-      showToast("价格已刷新。");
+      report("价格已刷新。", "ok");
     } catch (error) {
-      setStatus(`价格刷新失败：${error.message || "读取失败"}`, "warn");
-      showToast("价格刷新失败。", "warn");
+      report(`价格刷新失败：${error.message || "读取失败"}`, "warn");
     } finally {
       state.busy = false;
     }
   }
 
-  async function refreshInventory() {
+  async function refreshInventory(useToastFeedback = false) {
+    const report = (message, type = "", sticky = false) => {
+      if (useToastFeedback) showToast(message, type, sticky ? 0 : 2200);
+      else setStatus(message, type);
+    };
     if (state.busy) {
-      showToast("搜索进行中，暂时不能刷新库存。", "warn");
+      report("搜索进行中，暂时不能刷新库存。", "warn");
       return;
     }
-    const planner = window.__HV_MERGED_TOOLS__?.materialPlanner;
-    if (planner && typeof planner.refreshInventory === "function") {
+    const materialService = HVEA_SERVICES.get("materials");
+    if (materialService && typeof materialService.refreshInventory === "function") {
       state.busy = true;
       try {
-        setStatus("正在读取库存……");
-        await planner.refreshInventory();
-        updateInventoryBar();
-        setStatus("库存已刷新。", "ok");
-        showToast("库存已刷新。");
+        report("正在读取库存……", "", true);
+        await materialService.refreshInventory();
+        report("库存已刷新。", "ok");
       } catch (error) {
-        setStatus(`库存刷新失败：${error.message || "读取失败"}`, "warn");
-        showToast("库存刷新失败。", "warn");
+        report(`库存刷新失败：${error.message || "读取失败"}`, "warn");
       } finally {
         state.busy = false;
       }
@@ -7143,7 +7727,7 @@ function showToast(message, type = "") {
     }
     const rows = [...document.querySelectorAll("#equiplist tr[data-eid][data-key]")];
     if (!rows.length) {
-      showToast("当前页面没有装备列表（需在 HV 装备页面使用）。", "warn");
+      report("当前页面没有装备列表（需在 HV 装备页面使用）。", "warn");
       return;
     }
 
@@ -7191,11 +7775,8 @@ function showToast(message, type = "") {
     }
     refreshUI();
     saveState();
-    updateInventoryBar();
-
     const summary = `库存已刷新：新增 ${added} 件，更新链接 ${updated} 件${failed.length ? `，失败 ${failed.length} 件` : ""}。`;
-    setStatus(summary, failed.length ? "warn" : "ok");
-    showToast(summary);
+    report(summary, failed.length ? "warn" : "ok");
   }
 
   function serializePlanStep(step) {
@@ -7275,6 +7856,7 @@ function showToast(message, type = "") {
   }
 
   function updateInputSelector() {
+    if (!planSelector) return;
     const savedInputs = readSavedInputs();
     planSelector.replaceChildren();
 
@@ -7308,7 +7890,7 @@ function showToast(message, type = "") {
 
   function saveInputData() {
     if (!state.mainEquip) {
-      showToast("请先输入主装备数据。", "warn");
+      setStatus("请先输入主装备数据。", "warn");
       return;
     }
 
@@ -7336,19 +7918,19 @@ function showToast(message, type = "") {
       : [record, ...savedInputs].slice(0, MAX_SAVED_INPUTS);
 
     if (!writeSavedInputs(nextPlans)) {
-      showToast("输入数据保存失败，浏览器存储可能不可用。", "warn");
+      setStatus("输入数据保存失败，浏览器存储可能不可用。", "warn");
       return;
     }
 
     state.savedInputId = record.id;
     updateInputSelector();
     saveState();
-    showToast(`方案“${name}”保存成功。`);
+    setStatus(`方案“${name}”保存成功。`, "ok");
   }
 
   function loadSavedInputData() {
     if (state.busy) {
-      showToast("搜索进行中，暂时不能读取输入数据。", "warn");
+      setStatus("搜索进行中，暂时不能读取输入数据。", "warn");
       return;
     }
 
@@ -7358,7 +7940,7 @@ function showToast(message, type = "") {
     const savedInput = readSavedInputs().find((item) => item.id === inputId);
     if (!savedInput) {
       updateInputSelector();
-      showToast("找不到要读取的输入数据。", "warn");
+      setStatus("找不到要读取的输入数据。", "warn");
       return;
     }
 
@@ -7380,18 +7962,17 @@ function showToast(message, type = "") {
     updateInputSelector();
     saveState();
     setStatus(`已读取输入数据：${savedInput.name}。`, "ok");
-    showToast(`已读取输入数据“${savedInput.name}”。`);
   }
 
   function deleteSavedInputData() {
     if (state.busy) {
-      showToast("搜索进行中，暂时不能删除方案。", "warn");
+      setStatus("搜索进行中，暂时不能删除方案。", "warn");
       return;
     }
 
     const inputId = planSelector.value;
     if (!inputId) {
-      showToast("请先在方案列表中选择要删除的方案。", "warn");
+      setStatus("请先在方案列表中选择要删除的方案。", "warn");
       return;
     }
 
@@ -7399,7 +7980,7 @@ function showToast(message, type = "") {
     const savedInput = savedInputs.find((item) => item.id === inputId);
     if (!savedInput) {
       updateInputSelector();
-      showToast("找不到要删除的方案。", "warn");
+      setStatus("找不到要删除的方案。", "warn");
       return;
     }
 
@@ -7407,14 +7988,14 @@ function showToast(message, type = "") {
 
     const nextInputs = savedInputs.filter((item) => item.id !== inputId);
     if (!writeSavedInputs(nextInputs)) {
-      showToast("方案删除失败，浏览器存储可能不可用。", "warn");
+      setStatus("方案删除失败，浏览器存储可能不可用。", "warn");
       return;
     }
 
     state.savedInputId = "";
     updateInputSelector();
     saveState();
-    showToast(`方案“${savedInput.name}”已删除。`);
+    setStatus(`方案“${savedInput.name}”已删除。`, "ok");
   }
 
   function getPageStorage() {
@@ -7432,7 +8013,7 @@ function showToast(message, type = "") {
       equipUrl: equip.equipUrl || "",
       name: equip.name,
       attrs: { ...equip.attrs },
-      source: equip.source === "other" ? "other" : "inventory",
+      source: equip.source === "virtual" ? "virtual" : equip.source === "other" ? "other" : "inventory",
       used: includeUsed && equip.used === true,
       quality: equip.quality || detectQuality(equip.name),
       eqtType: equip.eqtType || "",
@@ -7452,7 +8033,7 @@ function showToast(message, type = "") {
     }
     if (!Object.keys(attrs).length) return null;
 
-    const source = defaultSource === "main" ? "main" : raw.source === "other" ? "other" : "inventory";
+    const source = defaultSource === "main" ? "main" : raw.source === "virtual" ? "virtual" : raw.source === "other" ? "other" : "inventory";
     const equip = new Equipment(Number(raw.id), String(raw.name || `装备 ${raw.id}`), attrs, source, String(raw.eqtType || ""), String(raw.equipUrl || ""));
     equip.used = defaultSource !== "main" && raw.used === true;
     equip.quality = raw.quality || detectQuality(equip.name);
@@ -7508,9 +8089,10 @@ function showToast(message, type = "") {
           fuseEquipId: state.fuseEquip?.id ?? null,
           currentPlan: state.currentPlan.map(serializePlanStep).filter(Boolean),
           currentPlanMeta: state.currentPlanMeta,
+          lastFusionDonorIds: state.lastFusionDonorIds,
           savedInputId: state.savedInputId,
           coreMarketPrice: state.coreMarketPrice,
-          useCoreInventory: state.useCoreInventory,
+          useInventory: state.useInventory,
           corePriceSource: state.corePriceSource,
           log: detailedLog,
           conciseLog: state.conciseLog.map(String),
@@ -7526,7 +8108,7 @@ function showToast(message, type = "") {
     if (!storage) {
       updateCount();
       clearInfo();
-      setStatus("请先设置主装备，再添加库存或其他装备。");
+      setStatus("请先设置主装备，再添加库存或非库存装备。");
       return;
     }
 
@@ -7535,7 +8117,7 @@ function showToast(message, type = "") {
       if (!raw) {
         updateCount();
         clearInfo();
-        setStatus("请先设置主装备，再添加库存或其他装备。");
+        setStatus("请先设置主装备，再添加库存或非库存装备。");
         return;
       }
 
@@ -7567,9 +8149,12 @@ function showToast(message, type = "") {
       state.currentPlanMeta = saved.currentPlanMeta
         ? normalizePlanMeta(saved.currentPlanMeta, state.currentPlan.length)
         : null;
+      state.lastFusionDonorIds = Array.isArray(saved.lastFusionDonorIds)
+        ? saved.lastFusionDonorIds.map(Number).filter(Number.isInteger)
+        : [];
       state.savedInputId = typeof saved.savedInputId === "string" ? saved.savedInputId : "";
       state.coreMarketPrice = saved.coreMarketPrice !== false;
-      state.useCoreInventory = saved.useCoreInventory === true;
+      state.useInventory = saved.useInventory === true || (saved.useInventory === undefined && saved.useCoreInventory === true);
       state.corePriceSource = typeof saved.corePriceSource === "string" ? saved.corePriceSource : "hvut";
       clearLog();
       detailedLog = savedLog;
@@ -7739,6 +8324,27 @@ function showToast(message, type = "") {
     return equip;
   }
 
+  // 按手动融合规则比较类别与基础装备类型；品质由手动导入规则另行校验。
+  function getManualFusionSignature(equip) {
+    const match = HVUT_EQUIPMENT_NAME_RE.exec(stripName(equip?.name));
+    if (!match) return "";
+    const category = match[4] ? "One-handed Weapon"
+      : match[5] ? "Two-handed Weapon"
+        : match[6] ? "Staff"
+          : match[7] ? "Shield"
+            : match[8] ? "Cloth Armor"
+              : match[9] ? "Light Armor"
+                : match[10] ? "Heavy Armor"
+                  : "";
+    const type = match[4] || match[5] || match[6] || match[7] || match[8] || match[9] || match[10] || "";
+    const slot = match[11] || "";
+    if (!category || !type) return "";
+    if (category === "One-handed Weapon" || category === "Two-handed Weapon" || category === "Staff" || category === "Shield") {
+      return `${category}\n${type}`.toLowerCase();
+    }
+    return `${category}\n${type}\n${slot}`.toLowerCase();
+  }
+
   function extractEquipmentLinks(text) {
     const candidates = [];
     const urlPattern = /https?:\/\/[^\s\]]+/gi;
@@ -7755,7 +8361,7 @@ function showToast(message, type = "") {
     )];
   }
 
-  async function fetchEquipmentLinks(links, source, label) {
+  async function fetchEquipmentLinks(links, source, label, onProgress = null) {
     const loaded = [];
     const failed = [];
 
@@ -7763,6 +8369,7 @@ function showToast(message, type = "") {
       try {
         const info = parseEquipmentUrl(links[index]);
         setStatus(`正在读取${label} ${index + 1}/${links.length}……`);
+        onProgress?.(index + 1, links.length);
         const html = await requestEquipmentHtml(info.url);
         const equip = parseEquipmentPage(html, info.id, info.url);
         equip.source = source;
@@ -7781,12 +8388,12 @@ function showToast(message, type = "") {
     }
   }
 
-  async function fetchFromText(text, source, label) {
+  async function fetchFromText(text, source, label, onProgress = null) {
     const links = extractEquipmentLinks(text);
     if (!links.length) return null;
     state.busy = true;
     try {
-      return await fetchEquipmentLinks(links, source, label);
+      return await fetchEquipmentLinks(links, source, label, onProgress);
     } finally {
       state.busy = false;
     }
@@ -7808,6 +8415,11 @@ function showToast(message, type = "") {
       return;
     }
 
+    if (equips[0].quality !== "Legendary") {
+      setStatus("手动导入的主装备必须为 Legendary。", "warn");
+      return;
+    }
+
     loadMainEquip(equips);
     if (fetched.failed.length) {
       logInputFailures("主装备", fetched.failed);
@@ -7816,10 +8428,10 @@ function showToast(message, type = "") {
     }
   }
 
-  async function loadInventoryInput(text) {
+  async function loadInventoryInput(text, onProgress = null) {
     if (state.busy) return;
 
-    const fetched = await fetchFromText(text, "inventory", "库存装备");
+    const fetched = await fetchFromText(text, "inventory", "库存装备", onProgress);
     if (!fetched) {
       setStatus("没有识别到库存装备数据或链接。", "warn");
       return;
@@ -7836,58 +8448,145 @@ function showToast(message, type = "") {
       return;
     }
 
+    const duplicateCount = countExistingDonorDuplicates(equips);
+    const imported = equips.length - duplicateCount;
     loadDonorEquips(equips);
-    if (fetched.failed.length) {
+    if (duplicateCount || fetched.failed.length) {
       logInputFailures("库存装备", fetched.failed);
-      setStatus(`库存装备已载入，但有 ${fetched.failed.length} 个链接读取失败。`, "warn");
-      saveState();
+      const details = [
+        duplicateCount ? `覆盖 ${duplicateCount} 件已导入的库存或非库存装备` : "",
+        fetched.failed.length ? `${fetched.failed.length} 个链接读取失败` : "",
+      ].filter(Boolean).join("，");
+      setStatus(`${imported ? `新增 ${imported} 件库存装备` : "没有新增库存装备"}；${details}。`, "warn");
     }
+    return { imported, duplicateCount };
   }
 
-  async function loadOtherInput(text) {
+  async function loadManualDonorInput(text, source) {
     if (state.busy) return;
-
-    const fetched = await fetchFromText(text, "other", "其他装备");
-    if (!fetched) {
-      setStatus("没有识别到其他装备数据或链接。", "warn");
+    if (!state.mainEquip) {
+      setStatus("请先导入主装备。", "warn");
+      return;
+    }
+    if (state.mainEquip.quality !== "Legendary") {
+      setStatus("手动导入素材前，主装备必须为 Legendary。", "warn");
       return;
     }
 
-    const blockedIds = new Set([
-      state.mainEquip?.id,
-      ...state.allEquips.filter((equip) => equip.source === "inventory").map((equip) => equip.id),
-    ]);
+    const isOther = source === "other";
+    const sourceLabel = isOther ? "非库存装备" : "库存装备";
+
+    const mainSignature = getManualFusionSignature(state.mainEquip);
+    if (!mainSignature) {
+      setStatus("主装备类型信息不完整，无法校验导入装备。", "warn");
+      return;
+    }
+
+    const fetched = await fetchFromText(text, isOther ? "other" : "inventory", sourceLabel);
+    if (!fetched) {
+      setStatus("没有识别到装备数据或链接。", "warn");
+      return;
+    }
+
+    const compatibleById = new Map();
+    let incompatible = 0;
+    let unsupportedQuality = 0;
+    for (const equip of fetched.loaded) {
+      if (!["Legendary", "Peerless"].includes(equip.quality)) {
+        unsupportedQuality += 1;
+        continue;
+      }
+      if (equip.id === state.mainEquip.id || getManualFusionSignature(equip) !== mainSignature) {
+        incompatible += 1;
+        continue;
+      }
+      compatibleById.set(equip.id, equip);
+    }
+
+    const equips = [...compatibleById.values()];
+    if (!equips.length) {
+      logInputFailures(sourceLabel, fetched.failed);
+      setStatus("非同种类素材。", "warn");
+      return;
+    }
+
+    const duplicateCount = countExistingDonorDuplicates(equips);
+    const newCount = equips.length - duplicateCount;
+    const loaded = isOther ? loadOtherDonorEquips(equips) : (loadDonorEquips(equips), equips.length);
+    if (!loaded) {
+      logInputFailures(sourceLabel, fetched.failed);
+      setStatus(`没有成功添加${sourceLabel}。`, "warn");
+      return;
+    }
+    logInputFailures(sourceLabel, fetched.failed);
+    const details = [
+      unsupportedQuality ? `忽略 ${unsupportedQuality} 件非 Legendary/Peerless 装备` : "",
+      incompatible ? `忽略 ${incompatible} 件不匹配装备` : "",
+      duplicateCount ? `覆盖 ${duplicateCount} 件已导入的库存或非库存装备` : "",
+      fetched.failed.length ? `${fetched.failed.length} 个链接读取失败` : "",
+    ].filter(Boolean).join("，");
+    setStatus(`${newCount ? `新增 ${newCount} 件${sourceLabel}` : `没有新增${sourceLabel}`}${details ? `；${details}。` : "。"}`, details ? "warn" : "ok");
+  }
+
+  function addVirtualPeerlessDonor() {
+    if (!state.mainEquip || !state.attrKeys.length) {
+      setStatus("请先导入主装备。", "warn");
+      return;
+    }
+
+    const existingNumbers = state.allEquips
+      .filter((equip) => equip.source === "virtual")
+      .map((equip) => Number.parseInt(String(equip.name).match(/^虚拟素材(\d+)$/)?.[1], 10) || 0);
+    const number = Math.max(0, ...existingNumbers) + 1;
+    let id = -1000000 - number;
+    while (state.allEquips.some((equip) => equip.id === id)) id -= 1;
+
+    const attrs = Object.fromEntries(state.attrKeys.map((key) => [key, 200]));
+    const donor = new Equipment(id, `虚拟素材${String(number).padStart(2, "0")}`, attrs, "virtual");
+    donor.quality = "Peerless";
+    state.allEquips.push(donor);
+    resetProgress();
+    state.activeTab = "other";
+    refreshUI();
+    saveState();
+    setStatus(`已添加 Peerless 虚拟素材：${donor.name}。`, "ok");
+  }
+
+  function countExistingDonorDuplicates(equips) {
+    const importedIds = new Set(
+      state.allEquips
+        .filter((equip) => equip.source === "inventory" || equip.source === "other")
+        .map((equip) => equip.id),
+    );
+    return equips.reduce((count, equip) => count + Number(importedIds.has(equip.id)), 0);
+  }
+
+  function loadOtherDonorEquips(equips) {
+    const incomingIds = new Set(equips.map((equip) => equip.id));
     const otherById = new Map(
       state.allEquips
-        .filter((equip) => equip.source === "other")
+        .filter((equip) => equip.source !== "inventory" && !incomingIds.has(equip.id))
         .map((equip) => [equip.id, equip]),
     );
     let added = 0;
-    for (const equip of fetched.loaded) {
-      if (blockedIds.has(equip.id)) continue;
+    for (const equip of equips) {
+      if (equip.id === state.mainEquip?.id) continue;
+      equip.source = "other";
       otherById.set(equip.id, equip);
       added += 1;
     }
 
-    if (!added) {
-      logInputFailures("其他装备", fetched.failed);
-      setStatus("没有成功添加其他装备。", "warn");
-      return;
-    }
+    if (!added) return 0;
 
     state.allEquips = [
-      ...state.allEquips.filter((equip) => equip.source === "inventory"),
+      ...state.allEquips.filter((equip) => equip.source === "inventory" && !incomingIds.has(equip.id)),
       ...otherById.values(),
     ];
     resetProgress();
     state.activeTab = "other";
     refreshUI();
-    logInputFailures("其他装备", fetched.failed);
     saveState();
-
-    if (fetched.failed.length) {
-      setStatus(`已添加 ${added} 件其他装备，但有 ${fetched.failed.length} 个链接读取失败。`, "warn");
-    }
+    return added;
   }
 
   function resetProgress() {
@@ -7897,6 +8596,7 @@ function showToast(message, type = "") {
     state.totalCores = 0;
     state.currentPlan = [];
     state.currentPlanMeta = null;
+    state.lastFusionDonorIds = [];
     state.savedInputId = "";
     clearLog();
     updateCount();
@@ -7933,6 +8633,7 @@ function showToast(message, type = "") {
       return;
     }
 
+    const incomingIds = new Set(equips.map((equip) => equip.id));
     const inventoryById = new Map(
       state.allEquips
         .filter((equip) => equip.source === "inventory")
@@ -7943,7 +8644,7 @@ function showToast(message, type = "") {
       equip.source = "inventory";
       inventoryById.set(equip.id, equip);
     }
-    const otherEquips = state.allEquips.filter((equip) => equip.source === "other");
+    const otherEquips = state.allEquips.filter((equip) => equip.source !== "inventory" && !incomingIds.has(equip.id));
     state.allEquips = [...inventoryById.values(), ...otherEquips];
     if (!state.attrKeys.length) state.attrKeys = Object.keys(equips[0].attrs);
     resetProgress();
@@ -7966,7 +8667,7 @@ function showToast(message, type = "") {
       return state.allEquips.filter((equip) => equip.source === "inventory");
     }
     if (state.activeTab === "other") {
-      return state.allEquips.filter((equip) => equip.source === "other");
+      return state.allEquips.filter((equip) => equip.source !== "inventory");
     }
     if (state.activeTab === "used") {
       return state.allEquips.filter((equip) => equip.used);
@@ -7976,7 +8677,7 @@ function showToast(message, type = "") {
 
   function updateTabs() {
     const inventoryCount = state.allEquips.filter((equip) => equip.source === "inventory").length;
-    const otherCount = state.allEquips.filter((equip) => equip.source === "other").length;
+    const otherCount = state.allEquips.filter((equip) => equip.source !== "inventory").length;
     const usedCount = state.allEquips.filter((equip) => equip.used).length;
     tabAllCount.textContent = String(state.allEquips.length);
     tabInventoryCount.textContent = String(inventoryCount);
@@ -8011,6 +8712,40 @@ function showToast(message, type = "") {
     return { text };
   }
 
+  const HV_COMPREHENSIVE_ATTRIBUTE_NAMES = {
+    'Strength': '力量', 'Dexterity': '灵巧', 'Agility': '敏捷',
+    'Endurance': '体质', 'Intelligence': '智力', 'Wisdom': '智慧',
+    'Fire': '火焰', 'Cold': '冰冷', 'Elec': '闪电', 'Wind': '疾风',
+    'Holy': '神圣', 'Dark': '黑暗',
+    'Crushing': '打击', 'Slashing': '斩击', 'Piercing': '刺击',
+    'Evade': '闪避', 'Block': '格挡', 'Parry': '招架', 'Resist': '抵抗',
+    'Physical Damage': '物理伤害', 'Magic Damage': '魔法伤害',
+    'Attack Damage': '攻击伤害',
+    'Attack Accuracy': '攻击命中', 'Magic Accuracy': '魔法命中',
+    'Attack Crit Chance': '攻击暴击率', 'Attack Crit Damage': '攻击暴击伤害',
+    'Magic Crit Chance': '魔法暴击率', 'Magic Crit Damage': '魔法暴击伤害',
+    'Physical Mitigation': '物理减伤', 'Magical Mitigation': '魔法减伤',
+    'Crushing Mitigation': '打击减伤', 'Slashing Mitigation': '斩击减伤',
+    'Piercing Mitigation': '刺击减伤',
+    'Elemental': '元素魔法', 'Elemental Magic': '元素魔法',
+    'Holy Magic': '神圣魔法', 'Dark Magic': '黑暗魔法',
+    'Deprecating': '减益魔法', 'Deprecating Magic': '减益魔法',
+    'Supportive': '增益魔法', 'Supportive Magic': '增益魔法',
+  };
+
+  function translateEquipTipAttribute(name) {
+    return HV_COMPREHENSIVE_ATTRIBUTE_NAMES[name] || name;
+  }
+
+  function translateFusionLogAttributes(text) {
+    return String(text || "").split("\n").map((line) => {
+      const match = line.match(/^(\s*)([^:]+):/);
+      if (!match) return line;
+      const translated = translateEquipTipAttribute(match[2]);
+      return translated === match[2] ? line : `${match[1]}${translated}:${line.slice(match[0].length)}`;
+    }).join("\n");
+  }
+
   function showEquipTip(equip, event) {
     if (!equip) return;
     equipTip.replaceChildren();
@@ -8033,11 +8768,12 @@ function showToast(message, type = "") {
     for (const key of localKeys) {
       const value = Number(equip.attrs[key] || 0);
       if (!Number.isFinite(value)) continue;
+      if (!FUSION_BINDING_BY_ATTRIBUTE[key]) continue;
       const normalized = key.toLowerCase().replace(/\s+/g, " ");
       if (seen.has(normalized)) continue;
       seen.add(normalized);
       const row = document.createElement("span");
-      row.textContent = `${key}: ${value}`;
+      row.textContent = `${translateEquipTipAttribute(key)}: ${value}`;
       attrsPart.appendChild(row);
     }
 
@@ -8048,13 +8784,14 @@ function showToast(message, type = "") {
         const item = stats[key];
         const label = item?.label || "";
         if (!label) continue;
+        if (!FUSION_BINDING_BY_ATTRIBUTE[label]) continue;
         const parsed = parseTipValue(item?.value);
         if (!parsed) continue;
         const normalized = label.toLowerCase().replace(/\s+/g, " ");
         if (seen.has(normalized)) continue;
-        seen.add(normalized);
-        const row = document.createElement("span");
-        row.textContent = `${label}: ${parsed.text}`;
+      seen.add(normalized);
+      const row = document.createElement("span");
+      row.textContent = `${translateEquipTipAttribute(label)}: ${parsed.text}`;
         attrsPart.appendChild(row);
       }
     }
@@ -8091,46 +8828,49 @@ function showToast(message, type = "") {
       const item = document.createElement("li");
       item.dataset.id = String(equip.id);
       item.classList.toggle("used", equip.used);
-      const sourceLabel = equip.source === "other" ? "其他" : "库存";
+      const sourceLabel = equip.source === "virtual" ? "虚拟" : equip.source === "other" ? "非库存" : "库存";
+      const qualityLabel = equip.quality === "Peerless" ? "P" : "L";
       const usedLabel = equip.used ? " [已使用]" : "";
 
       const previewLabel = state.mainEquip
-        ? ` [本次 +${calcPreview(state.mainEquip.attrs, equip.attrs).total}]`
+        ? ` [+ ${calcPreview(state.mainEquip.attrs, equip.attrs).total}]`
         : "";
       const label = document.createElement("span");
       label.className = "hv-ms-equip-label";
       const sourceSpan = document.createElement("span");
-      sourceSpan.textContent = `[${sourceLabel}]${usedLabel} `;
+      sourceSpan.textContent = `[${sourceLabel}] [${qualityLabel}] `;
       const idSpan = document.createElement("span");
       idSpan.className = "hv-ms-equip-id";
       idSpan.textContent = String(equip.id);
-      idSpan.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const hasKey = new RegExp(`/equip/${equip.id}/[^/?#]+`, "i").test(equip.equipUrl || "");
-        let url = hasKey ? equip.equipUrl : "";
-        if (!hasKey) {
-          const pageUrl = buildEquipUrlFromPage(equip.id);
-          if (pageUrl) {
-            equip.equipUrl = pageUrl;
-            url = pageUrl;
-            saveState();
+      if (equip.source !== "virtual") {
+        idSpan.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const hasKey = new RegExp(`/equip/${equip.id}/[^/?#]+`, "i").test(equip.equipUrl || "");
+          let url = hasKey ? equip.equipUrl : "";
+          if (!hasKey) {
+            const pageUrl = buildEquipUrlFromPage(equip.id);
+            if (pageUrl) {
+              equip.equipUrl = pageUrl;
+              url = pageUrl;
+              saveState();
+            }
           }
-        }
-        if (!url) {
-          showToast(`未找到装备 ${equip.id} 的完整链接，请重新导入该装备。`, "warn");
-          return;
-        }
-        const popupWidth = 450;
-        const popupHeight = 520;
-        const popupLeft = Math.max(0, Math.round((window.screen.availWidth - popupWidth) / 2));
-        const popupTop = Math.max(0, Math.round((window.screen.availHeight - popupHeight) / 2));
-        window.open(url, "_blank", `noopener,width=${popupWidth},height=${popupHeight},left=${popupLeft},top=${popupTop}`);
-      });
-      label.append(sourceSpan, idSpan, document.createTextNode(previewLabel));
-      label.addEventListener("mouseenter", (event) => showEquipTip(equip, event));
-      label.addEventListener("mousemove", moveEquipTip);
-      label.addEventListener("mouseleave", hideEquipTip);
+          if (!url) {
+            setStatus(`未找到装备 ${equip.id} 的完整链接，请重新导入该装备。`, "warn");
+            return;
+          }
+          const popupWidth = 450;
+          const popupHeight = 520;
+          const popupLeft = Math.max(0, Math.round((window.screen.availWidth - popupWidth) / 2));
+          const popupTop = Math.max(0, Math.round((window.screen.availHeight - popupHeight) / 2));
+          window.open(url, "_blank", `noopener,width=${popupWidth},height=${popupHeight},left=${popupLeft},top=${popupTop}`);
+        });
+      }
+      label.append(sourceSpan, idSpan, document.createTextNode(previewLabel + usedLabel));
+      idSpan.addEventListener("mouseenter", (event) => showEquipTip(equip, event));
+      idSpan.addEventListener("mousemove", moveEquipTip);
+      idSpan.addEventListener("mouseleave", hideEquipTip);
       item.appendChild(label);
 
       if (state.fuseEquip?.id === equip.id) item.classList.add("selected");
@@ -8158,15 +8898,16 @@ function showToast(message, type = "") {
       const value = Number(equip.attrs[key] || 0);
       const item = document.createElement("span");
       item.className = "hv-ms-attr";
+      const label = translateEquipTipAttribute(key);
 
       if (changes && changes[key]) {
         const [oldValue, gain] = changes[key];
-        item.append(document.createTextNode(`${key}: ${oldValue} → ${oldValue + gain} `));
+        item.append(document.createTextNode(`${label}: ${oldValue} → ${oldValue + gain} `));
         const mark = document.createElement("em");
         mark.textContent = `(+${gain})`;
         item.appendChild(mark);
       } else {
-        item.textContent = `${key}: ${value}`;
+        item.textContent = `${label}: ${value}`;
       }
       container.appendChild(item);
     }
@@ -8178,13 +8919,12 @@ function showToast(message, type = "") {
     mainPreview.replaceChildren();
 
     const percent = qualityPercent(equip.attrs, equip.quality);
-    const capLabel = equip.fuseCapLabel || "未知";
     const capName = FUSE_CAP[equip.fuseCap]?.label || "未知";
     const perFusion = fuseCostCredits(equip.attrs, equip.quality, equip.fuseCapCredits);
     const infoLine = document.createElement("div");
     infoLine.textContent = perFusion === null
-      ? `优秀度：${percent.toFixed(1)}%｜费用上限：${capName}（${capLabel}）｜本次融合费用：未知`
-      : `优秀度：${percent.toFixed(1)}%｜费用上限：${capName}（${capLabel}）｜本次融合费用：${formatCostCompact(perFusion)}`;
+      ? `优秀度：${percent.toFixed(1)}%｜费用上限：${capName}｜本次融合费用：未知`
+      : `优秀度：${percent.toFixed(1)}%｜费用上限：${capName}｜本次融合费用：${formatCostCompact(perFusion)}`;
     mainPreview.appendChild(infoLine);
 
     if (!changes) return;
@@ -8194,9 +8934,6 @@ function showToast(message, type = "") {
     gainLine.textContent = `本次预计增加 ${total} 点属性`;
     mainPreview.appendChild(gainLine);
 
-    const coreLine = document.createElement("div");
-    coreLine.textContent = `本次消耗核心：${calcCoreCost(state.mainEquip, state.fuseEquip)}`;
-    mainPreview.appendChild(coreLine);
   }
 
   function displayFuse(equip) {
@@ -8205,7 +8942,12 @@ function showToast(message, type = "") {
   }
 
   function refreshUI() {
-    updateInventoryBar();
+    const manualImportButton = $("hv-minsteps-import-equips");
+    if (manualImportButton) {
+      const mainIsLegendary = state.mainEquip?.quality === "Legendary";
+      manualImportButton.disabled = false;
+      manualImportButton.title = mainIsLegendary ? "" : "请先导入 Legendary 主装备";
+    }
     updateList();
     clearInfo();
 
@@ -8215,7 +8957,7 @@ function showToast(message, type = "") {
 
   function removeEquipment(equip) {
     if (state.busy) {
-      showToast("搜索进行中，暂时不能移除装备。", "warn");
+      setStatus("搜索进行中，暂时不能移除装备。", "warn");
       return;
     }
 
@@ -8228,12 +8970,12 @@ function showToast(message, type = "") {
     refreshUI();
     updateInputSelector();
     saveState();
-    showToast(`已移除装备 ${equip.id}。`);
+    setStatus(`已移除装备 ${equip.id}。`, "ok");
   }
 
   async function exportCurrentPlan() {
     if (!state.currentPlan.length) {
-      showToast("当前没有可导出的融合方案。", "warn");
+      setStatus("当前没有可导出的融合方案。", "warn");
       return;
     }
 
@@ -8243,7 +8985,7 @@ function showToast(message, type = "") {
 
     try {
       await copyText(text);
-      showToast("融合方案已复制到剪贴板。");
+      setStatus("融合方案已复制到剪贴板。", "ok");
     } catch {
       prompt("复制失败，请手动复制融合顺序：", text);
     }
@@ -8251,11 +8993,17 @@ function showToast(message, type = "") {
 
   function selectFuse(equip) {
     if (equip.used) {
-      showToast("该装备已使用，不能再次融合。", "warn");
+      setStatus("该装备已使用，不能再次融合。", "warn");
       return;
     }
     if (state.mainEquip?.id === equip.id) {
-      alert("主装备不能作为祭品。请点击其他装备。");
+      alert("主装备不能作为祭品。请点击非库存装备。");
+      return;
+    }
+    if (state.fuseEquip?.id === equip.id) {
+      state.fuseEquip = null;
+      refreshUI();
+      saveState();
       return;
     }
 
@@ -8573,17 +9321,17 @@ function showToast(message, type = "") {
     if (writeLog) {
       const newPercent = qualityPercent(state.mainEquip.attrs, state.mainEquip.quality);
       state.conciseLog.push(
-        `${state.conciseLog.length + 1} [${donor.id}] 本次费用: ${cost === null ? "未知" : formatCostCompact(cost)} 本次增加 ${result.total} 点属性 本次核心：${cores} （${percent.toFixed(1)}%→${newPercent.toFixed(1)}%）`,
+        `${state.conciseLog.length + 1} [${donor.id}] 本次费用: ${cost === null ? "未知" : formatCostCompact(cost)} 本次增加 ${result.total} 点属性 使用核心：${cores} （${percent.toFixed(1)}%→${newPercent.toFixed(1)}%）`,
       );
       log(`祭品 [${donor.id}] → 主装备 [${state.mainEquip.id}]`);
       log(cost === null
         ? `本次费用：未知（${percent.toFixed(1)}%→${newPercent.toFixed(1)}%）`
         : `本次费用：${formatCost(cost)}（${percent.toFixed(1)}%→${newPercent.toFixed(1)}%）`);
       log(`本次增加 ${result.total} 点属性`);
-      log(`本次核心：${cores}`);
+      log(`使用核心：${cores}`);
       for (const key of state.attrKeys) {
         const [oldValue, gain] = result.changes[key];
-        log(`  ${key}: ${oldValue} → ${oldValue + gain} (+${gain})`);
+        log(`  ${translateEquipTipAttribute(key)}: ${oldValue} → ${oldValue + gain} (+${gain})`);
       }
       log("----------------------------------------");
     }
@@ -8594,6 +9342,7 @@ function showToast(message, type = "") {
   }
 
   function applyFusionPlan(donors) {
+    state.lastFusionDonorIds = donors.map((donor) => Number(donor?.id)).filter(Number.isInteger);
     const previousSuspended = logRenderSuspended;
     logRenderSuspended = true;
     try {
@@ -8755,7 +9504,7 @@ function showToast(message, type = "") {
       "ok",
     );
     alert(
-      `束搜索顺序已执行\n融合次数：${result.steps}\n检查状态数：${result.nodes.toLocaleString()}\n总费用：${formatCost(state.totalFusionCost)}\n本次用时：${elapsedText}`,
+      `束搜索顺序已执行\n融合次数：${result.steps}\n检查状态数：${result.nodes.toLocaleString()}\n本次用时：${elapsedText}`,
     );
   }
 
@@ -8770,12 +9519,13 @@ function showToast(message, type = "") {
     }
 
     const donor = state.fuseEquip;
-    setCurrentPlan(
-      [donor],
-      { steps: 1, proven: false, timedOut: false, elapsed: "", nodes: 0, kind: "manual" },
-    );
     const manualCost = fuseCostCredits(state.mainEquip.attrs, state.mainEquip.quality, state.mainEquip.fuseCapCredits);
     const manualCores = calcCoreCost(state.mainEquip, donor);
+    const manualPlan = [...state.currentPlan, { id: donor.id, name: donor.name }];
+    setCurrentPlan(
+      manualPlan,
+      { steps: manualPlan.length, proven: false, timedOut: false, elapsed: "", nodes: 0, kind: "manual" },
+    );
     applyFusion(donor);
     state.fuseEquip = null;
     updateCount();
@@ -8783,8 +9533,8 @@ function showToast(message, type = "") {
     saveState();
     setStatus(manualCost === null ? `手动融合完成，本次费用未知，本次核心 ${manualCores}。` : `手动融合完成，本次费用 ${formatCost(manualCost)}，本次核心 ${manualCores}。`, "ok");
     alert(manualCost === null
-      ? `融合完成。\n本次费用：未知\n本次核心：${manualCores}\n累计费用：${formatCost(state.totalFusionCost)}\n累计核心：${state.totalCores}`
-      : `融合完成。\n本次费用：${formatCost(manualCost)}\n本次核心：${manualCores}\n累计费用：${formatCost(state.totalFusionCost)}\n累计核心：${state.totalCores}`);
+      ? `融合完成。\n本次费用：未知\n使用核心：${manualCores}\n累计费用：${formatCost(state.totalFusionCost)}\n累计核心：${state.totalCores}`
+      : `融合完成。\n本次费用：${formatCost(manualCost)}\n使用核心：${manualCores}\n累计费用：${formatCost(state.totalFusionCost)}\n累计核心：${state.totalCores}`);
   }
 
   async function doMinimumFusion() {
@@ -8863,27 +9613,27 @@ function showToast(message, type = "") {
 
     if (result.paused) {
       setStatus(
-        `已暂停，当前方案：${result.steps} 次融合，用时 ${elapsedText}，检查 ${result.nodes.toLocaleString()} 个状态，总费用 ${formatCostCompact(state.totalFusionCost)}，尚未证明最优`,
+        `已暂停，当前方案：${result.steps} 次融合，用时 ${elapsedText}，检查 ${result.nodes.toLocaleString()} 个状态，尚未证明最优`,
         "warn",
       );
       alert(
-        `已暂停，已执行当前方案\n融合次数：${result.steps}\n检查状态数：${result.nodes.toLocaleString()}\n总费用：${formatCost(state.totalFusionCost)}\n注意：尚未证明这是最少次数。\n本次用时：${elapsedText}`,
+        `已暂停，已执行当前方案\n融合次数：${result.steps}\n检查状态数：${result.nodes.toLocaleString()}\n注意：尚未证明这是最少次数。\n本次用时：${elapsedText}`,
       );
     } else if (result.proven) {
       setStatus(
-        `已证明最优：${result.steps} 次融合，用时 ${elapsedText}，检查 ${result.nodes.toLocaleString()} 个状态，总费用 ${formatCostCompact(state.totalFusionCost)}`,
+        `已证明最优：${result.steps} 次融合，用时 ${elapsedText}，检查 ${result.nodes.toLocaleString()} 个状态`,
         "ok",
       );
       alert(
-        `已证明最优方案\n融合次数：${result.steps}\n检查状态数：${result.nodes.toLocaleString()}\n总费用：${formatCost(state.totalFusionCost)}\n本次用时：${elapsedText}`,
+        `已证明最优方案\n融合次数：${result.steps}\n检查状态数：${result.nodes.toLocaleString()}\n本次用时：${elapsedText}`,
       );
     } else {
       setStatus(
-        `当前方案：${result.steps} 次融合，用时 ${elapsedText}，检查 ${result.nodes.toLocaleString()} 个状态，总费用 ${formatCostCompact(state.totalFusionCost)}，尚未证明最优`,
+        `当前方案：${result.steps} 次融合，用时 ${elapsedText}，检查 ${result.nodes.toLocaleString()} 个状态，尚未证明最优`,
         "warn",
       );
       alert(
-        `当前方案已执行\n融合次数：${result.steps}\n总费用：${formatCost(state.totalFusionCost)}\n注意：尚未证明这是最少次数。\n本次用时：${elapsedText}`,
+        `当前方案已执行\n融合次数：${result.steps}\n注意：尚未证明这是最少次数。\n本次用时：${elapsedText}`,
       );
     }
   }
@@ -8900,26 +9650,28 @@ function showToast(message, type = "") {
     state.totalCores = 0;
     state.currentPlan = [];
     state.currentPlanMeta = null;
+    state.lastFusionDonorIds = [];
     state.activeTab = "all";
     clearLog();
     updateCount();
     refreshUI();
     updateInputSelector();
+    renderFusionMaterialPanel();
   }
 
   function resetCalculation() {
     if (state.busy) {
-      showToast("搜索进行中，暂时不能重置计算。", "warn");
+      setStatus("搜索进行中，暂时不能重置计算。", "warn");
       return;
     }
 
     restoreCalculationState();
     saveState();
     setStatus("计算已重置，装备数据已保留。", "ok");
-    showToast("计算已重置。");
   }
 
   function resetData() {
+    if (!window.confirm("确定要重置所有融合数据吗？主装备、素材、融合记录和日志将被清除。")) return;
     state.pauseRequested = false;
     state.allEquips = [];
     state.mainEquip = null;
@@ -8967,10 +9719,10 @@ function showToast(message, type = "") {
         white-space: nowrap;
       }
       #hv-minsteps-actions #hv-minsteps-page-import-main {
-        margin-top: 12px;
+        margin-top: 7px;
       }
       #hv-minsteps-actions #hv-minsteps-page-import-plan {
-        margin-top: 12px;
+        margin-top: 7px;
       }
     `;
     document.head.appendChild(pageStyle);
@@ -8978,22 +9730,26 @@ function showToast(message, type = "") {
     const importButton = document.createElement("button");
     importButton.id = "hv-minsteps-page-import-plan";
     importButton.type = "button";
-    importButton.className = "hvut-side-mid";
+    applyHveaPrimaryButtonStyle(importButton);
+    importButton.classList.add("hvea-fusion-page-action");
     importButton.textContent = "导入方案";
     const clearButton = document.createElement("button");
     clearButton.id = "hv-minsteps-page-clear-plan";
     clearButton.type = "button";
-    clearButton.className = "hvut-side-bottom";
+    applyHveaPrimaryButtonStyle(clearButton);
+    clearButton.classList.add("hvea-fusion-page-action");
     clearButton.textContent = "清除方案";
     const importMaterialsButton = document.createElement("button");
     importMaterialsButton.id = "hv-minsteps-page-import-materials";
     importMaterialsButton.type = "button";
-    importMaterialsButton.className = "hvut-side-mid";
+    applyHveaPrimaryButtonStyle(importMaterialsButton);
+    importMaterialsButton.classList.add("hvea-fusion-page-action");
     importMaterialsButton.textContent = "导入素材";
     const importMainButton = document.createElement("button");
     importMainButton.id = "hv-minsteps-page-import-main";
     importMainButton.type = "button";
-    importMainButton.className = "hvut-side-mid";
+    applyHveaPrimaryButtonStyle(importMainButton);
+    importMainButton.classList.add("hvea-fusion-page-action");
     importMainButton.textContent = "导入主装备";
 
     const armoryActions = document.getElementById("hv-minsteps-actions");
@@ -9308,60 +10064,115 @@ function showToast(message, type = "") {
         return;
       }
       setStatus(`正在读取 ${links.length} 件融合素材……`);
-      await loadInventoryInput(links.join("\n"));
-      showToast(`已导入 ${links.length} 件融合素材。`, "ok");
+      const result = await loadInventoryInput(
+        links.join("\n"),
+        (current, total) => showToast(`正在导入融合素材：${current}/${total}`, "", 0),
+      );
+      showToast(
+        result?.imported ? `已导入 ${result.imported} 件融合素材。` : "没有新增融合素材。",
+        result?.imported ? "ok" : "warn",
+      );
     });
   }
 
-  launchButton.addEventListener("click", () => panel.classList.toggle("open"));
+  const fusionData = Object.freeze({
+    importMain: loadMainInput,
+    importDonors: loadManualDonorInput,
+    parseEquipment: parseEquipmentPage,
+    save: saveState,
+    restore: restoreState,
+  });
+  const fusionRules = Object.freeze({
+    getManualSignature: getManualFusionSignature,
+    calcCoreCost,
+    preview: calcPreview,
+  });
+  const fusionSolver = Object.freeze({
+    manual: doManualFusion,
+    beam: doBeamFusion,
+    precise: doMinimumFusion,
+    reset: resetCalculation,
+  });
+  const fusionMaterials = Object.freeze({
+    openPanel: openFusionMaterialPanel,
+    refreshPrices: refreshPrice,
+    refreshInventory,
+    getDonors: getFusionMaterialDonors,
+  });
+  const fusionUI = Object.freeze({
+    open: () => panel.classList.add("open"),
+    toggle: () => panel.classList.toggle("open"),
+    refresh: refreshUI,
+    setStatus,
+  });
+  HVEA_SHARED.fusion = Object.freeze({
+    data: fusionData,
+    rules: fusionRules,
+    solver: fusionSolver,
+    materials: fusionMaterials,
+    ui: fusionUI,
+  });
+
+  function startFusionModule() {
+  launchButton.addEventListener("click", () => HVEA_SHARED.fusion.ui.toggle());
   $("hv-minsteps-close").addEventListener("click", () => panel.classList.remove("open"));
+  [
+    "hv-minsteps-paste-main",
+    "hv-minsteps-import-equips",
+    "hv-minsteps-reset-calculation",
+    "hv-minsteps-reset",
+    "hv-minsteps-pause",
+  ].forEach((id) => {
+    $(id).addEventListener("click", (event) => {
+      // 鼠标点击不保留焦点背景；键盘操作仍保留可见焦点。
+      if (event.detail) event.currentTarget.blur();
+    });
+  });
   $("hv-minsteps-paste-main").addEventListener("click", async () => {
     const text = prompt("请输入主装备链接（支持 [url=装备链接]装备名称[/url] 格式）：", "");
-    if (text !== null) await loadMainInput(text);
+    if (text !== null) await HVEA_SHARED.fusion.data.importMain(text);
   });
-  $("hv-minsteps-paste-donors").addEventListener("click", async () => {
-    const text = prompt("请输入库存装备链接（每行一件，支持 [url=装备链接]装备名称[/url] 格式）：", "");
-    if (text !== null) await loadInventoryInput(text);
-  });
-  $("hv-minsteps-add-other").addEventListener("click", async () => {
-    const text = prompt("请输入其他装备链接（每行一件，支持 [url=装备链接]装备名称[/url] 格式）：", "");
-    if (text !== null) await loadOtherInput(text);
-  });
-  function syncCoreControls() {
-    const marketInput = document.getElementById("hv-minsteps-core-market");
-    const inventoryInput = document.getElementById("hv-minsteps-core-inventory");
-    const sourceSelect = document.getElementById("hv-minsteps-core-price-source");
-    if (marketInput) marketInput.checked = state.coreMarketPrice;
-    if (inventoryInput) inventoryInput.checked = state.useCoreInventory;
-    if (sourceSelect) sourceSelect.value = state.corePriceSource;
+  const importMenu = $("hv-minsteps-import-menu");
+  const importEquipmentButton = $("hv-minsteps-import-equips");
+  function closeImportMenu() {
+    importMenu?.classList.remove("open");
+    importEquipmentButton?.setAttribute("aria-expanded", "false");
   }
-  (() => {
-    const marketInput = document.getElementById("hv-minsteps-core-market");
-    const inventoryInput = document.getElementById("hv-minsteps-core-inventory");
-    const sourceSelect = document.getElementById("hv-minsteps-core-price-source");
-    if (marketInput) marketInput.addEventListener("change", () => {
-      state.coreMarketPrice = marketInput.checked;
-      saveState();
-      updateCount();
+  importEquipmentButton.addEventListener("click", () => {
+    if (!state.mainEquip) {
+      setStatus("请先导入主装备。", "warn");
+      return;
+    }
+    const open = !importMenu.classList.contains("open");
+    importMenu.classList.toggle("open", open);
+    importEquipmentButton.setAttribute("aria-expanded", String(open));
+  });
+  importMenu.querySelectorAll("[data-import-source]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      if (!state.mainEquip) {
+        setStatus("请先导入主装备。", "warn");
+        closeImportMenu();
+        return;
+      }
+      closeImportMenu();
+      if (button.dataset.importSource === "peerless") {
+        addVirtualPeerlessDonor();
+        return;
+      }
+      const source = button.dataset.importSource === "other" ? "other" : "inventory";
+      const text = prompt("请输入装备链接（每行一件，支持 [url=装备链接]装备名称[/url] 格式）：", "");
+      if (text !== null) await HVEA_SHARED.fusion.data.importDonors(text, source);
     });
-    if (inventoryInput) inventoryInput.addEventListener("change", () => {
-      state.useCoreInventory = inventoryInput.checked;
-      saveState();
-      updateCount();
-    });
-    if (sourceSelect) sourceSelect.addEventListener("change", () => {
-      state.corePriceSource = sourceSelect.value;
-      saveState();
-    });
-  })();
-
-  $("hv-minsteps-reset-calculation").addEventListener("click", resetCalculation);
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (!importMenu.contains(event.target)) closeImportMenu();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeImportMenu();
+  });
+  $("hv-minsteps-reset-calculation").addEventListener("click", HVEA_SHARED.fusion.solver.reset);
   $("hv-minsteps-reset").addEventListener("click", resetData);
-  $("hv-minsteps-refresh-price").addEventListener("click", refreshPrice);
-  $("hv-minsteps-refresh-inventory").addEventListener("click", refreshInventory);
-  savePlanButton.addEventListener("click", saveInputData);
-  deletePlanButton.addEventListener("click", deleteSavedInputData);
-  planSelector.addEventListener("change", loadSavedInputData);
+  materialCalcButton.addEventListener("click", HVEA_SHARED.fusion.materials.openPanel);
   tabButtons.forEach((button) => {
     button.addEventListener("click", () => {
       state.activeTab = button.dataset.tab || "all";
@@ -9370,9 +10181,9 @@ function showToast(message, type = "") {
     });
   });
   list.addEventListener("scroll", hideEquipTip);
-  $("hv-minsteps-do").addEventListener("click", doManualFusion);
-  beamButton.addEventListener("click", doBeamFusion);
-  autoButton.addEventListener("click", doMinimumFusion);
+  $("hv-minsteps-do").addEventListener("click", HVEA_SHARED.fusion.solver.manual);
+  beamButton.addEventListener("click", HVEA_SHARED.fusion.solver.beam);
+  autoButton.addEventListener("click", HVEA_SHARED.fusion.solver.precise);
   pauseButton.addEventListener("click", () => {
     if (!state.busy) return;
 
@@ -9391,11 +10202,12 @@ function showToast(message, type = "") {
       top: Number.parseFloat(actionPanel.style.top),
     }, true);
   });
-  updateInputSelector();
-  syncCoreControls();
   restoreState();
-  syncCoreControls();
   backfillEquipmentUrls();
   window.setTimeout(backfillEquipmentUrls, 1200);
   setupFusionPagePlanTools();
+  }
+
+  HVEA_MODULES.register("fusion", HVEA_SHARED.fusion, startFusionModule);
+  HVEA_MODULES.start("fusion");
 })();
