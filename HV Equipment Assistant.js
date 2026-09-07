@@ -2,7 +2,7 @@
 // @name         HV 装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.2.0
+// @version      1.2.1
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -1910,7 +1910,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         const counterResistStat = parsed.stats.find(stat => isCounterResistTitle(stat.title));
         const result = {
             html,
-            originalName: getOriginalEquipmentName(html),
+            originalName: String(detail?.n || getOriginalEquipmentName(html)).trim(),
             forge: tierMatch ? parseInt(tierMatch[1], 10) : 0,
             iw: tierMatch ? parseInt(tierMatch[2], 10) : 0,
             max: tierMatch ? parseInt(tierMatch[3], 10) : 0,
@@ -3308,16 +3308,17 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     return (rounded > 0 ? '+' : '') + text;
   }
 
-  function setPanelIncrementSource(item, source, value) {
+  function setPanelIncrementSource(item, source, value, isManaCostModifier = false) {
     const key = item?.tr || item?.td2;
     if (!key) return;
     let entry = PANEL_INCREMENT_SOURCES.get(key);
     if (!entry) {
-      entry = { item, upgrade: 0, derived: 0, charm: 0, prof: 0 };
+      entry = { item, upgrade: 0, derived: 0, charm: 0, prof: 0, isManaCostModifier: false };
       PANEL_INCREMENT_SOURCES.set(key, entry);
     }
     entry.item = item;
     entry[source] = Number(value) || 0;
+    if (isManaCostModifier) entry.isManaCostModifier = true;
   }
 
   function clearPanelIncrementSources(source) {
@@ -3344,10 +3345,8 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       if (Math.abs(Number(entry.charm || 0)) >= 0.00001) parts.push(PANEL_INCREMENT_SOURCE_CHARM + ' ' + formatPanelIncrementValue(entry.charm) + unit);
       if (Math.abs(Number(entry.prof || 0)) >= 0.00001) parts.push(PANEL_INCREMENT_SOURCE_PROF + ' ' + formatPanelIncrementValue(entry.prof) + unit);
       const span = document.createElement('span');
-      const panelName = cleanName(entry.item.panelName || entry.item.td2.textContent || '');
-      const isManaCostModifier = panelName === 'manacostmodifier' || panelName === '法力消耗修正';
       const isNegative = total < 0;
-      const isNegativeBad = isManaCostModifier ? !isNegative : isNegative;
+      const isNegativeBad = entry.isManaCostModifier ? !isNegative : isNegative;
       span.className = PANEL_INCREMENT_CLASS;
       span.style.cssText = 'color: ' + (isNegativeBad ? '#c00' : '#0a0') + '; font-weight: bold; margin-left: 5px; font-size: 7pt; vertical-align: baseline; line-height: 1; display: inline-block; cursor: help;';
       span.title = parts.join('\n');
@@ -4166,15 +4165,16 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         if (!item) return;
         const key = item.tr || item.td2;
         if (!key) return;
-        const entry = pending.get(key) || { item, green: 0, blue: 0, canonicalName: '' };
+        const entry = pending.get(key) || { item, green: 0, blue: 0, canonicalName: '', isManaCostModifier: false };
         if (color === 'blue') {
           entry.blue += Number(diff) || 0;
         } else {
           entry.green += Number(diff) || 0;
         }
         const name = String(canonicalName || item.panelName || '');
-        if (/Mana Cost/.test(name)) {
+        if (name === 'Mana Cost' || name === 'Mana Conservation' || name === 'Mana Cost Modifier') {
           entry.canonicalName = 'Mana Cost';
+          entry.isManaCostModifier = true;
         } else if (!entry.canonicalName) {
           entry.canonicalName = name;
         }
@@ -4216,10 +4216,10 @@ HVEA_MATERIALS.inventoryMaterialNames = [
 
       for (const entry of pending.values()) {
         if (Math.abs(entry.green) >= 0.0001) {
-          setPanelIncrementSource(entry.item, 'upgrade', normalizePanelDisplayDiff(entry.green, entry.canonicalName));
+          setPanelIncrementSource(entry.item, 'upgrade', normalizePanelDisplayDiff(entry.green, entry.canonicalName), entry.isManaCostModifier);
         }
         if (Math.abs(entry.blue) >= 0.0001) {
-          setPanelIncrementSource(entry.item, 'derived', normalizePanelDisplayDiff(entry.blue, entry.canonicalName));
+          setPanelIncrementSource(entry.item, 'derived', normalizePanelDisplayDiff(entry.blue, entry.canonicalName), entry.isManaCostModifier);
         }
       }
 
@@ -5668,20 +5668,24 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       return Array.isArray(charmState.selected[key]) ? charmState.selected[key] : [];
     }
 
-    function setActualCharmSelections(key, charms, slot) {
+    function setActualCharmSelections(key, charms, slot, actualCharms = charms) {
       const normalized = filterCharmsForSlot(key, charms, slot);
+      const actual = filterCharmsForSlot(key, actualCharms, slot);
       charmState.selected[key] = normalized;
       if (!popup) return;
       const sizeByType = new Map(normalized.map(charm => [charm.type, charm.size]));
+      const actualSizeByType = new Map(actual.map(charm => [charm.type, charm.size]));
       popup.querySelectorAll('[data-slot="' + key + '"]').forEach(row => {
         const type = row.dataset.type;
         const size = sizeByType.get(type);
+        const actualSize = actualSizeByType.get(type);
         const actualSizeEl = row.querySelector('[data-role="actual-size"]');
         const sizeBtn = row.querySelector('[data-role="size"]');
         if (!actualSizeEl || !sizeBtn) return;
+        const actualLabel = actualSize ? (actualSize === 'greater' ? '大' : '小') : '无';
         const label = size ? (size === 'greater' ? '大' : '小') : '无';
-        actualSizeEl.textContent = label;
-        applyCharmSizeColor(actualSizeEl, size || 'none');
+        actualSizeEl.textContent = actualLabel;
+        applyCharmSizeColor(actualSizeEl, actualSize || 'none');
         sizeBtn.dataset.size = size || 'none';
         sizeBtn.textContent = label;
         applyCharmSizeColor(sizeBtn, size || 'none');
@@ -5726,18 +5730,29 @@ HVEA_MATERIALS.inventoryMaterialNames = [
 
       CHARM_SLOT_KEYS.forEach(key => {
         const slot = slots[key];
-        if (!slot || !getEquipmentStatForTitle(slot, 'Mana Cost')) return;
-        const rawReduction = getPureEquipmentStatValue(slot, 'Mana Cost', activeUpgradeSimulation?.state, []);
+        if (!slot) return;
+
+        const hasEquipmentManaCostStat = Boolean(getEquipmentStatForTitle(slot, 'Mana Cost'));
+        const rawReduction = hasEquipmentManaCostStat
+          ? getPureEquipmentStatValue(slot, 'Mana Cost', activeUpgradeSimulation?.state, [])
+          : 0;
         if (!Number.isFinite(rawReduction)) return;
 
         const weaponClass = resolveWeaponClass(slot);
         const actualCharms = Array.isArray(charmState.actualCharms[key]) ? charmState.actualCharms[key] : [];
         const selectedCharms = getSelectedCharmsForSlot(key);
-        actualReduction += rawReduction;
-        selectedReduction += rawReduction
-          + getManaCostReductionFromCharms(selectedCharms, weaponClass, level)
-          - getManaCostReductionFromCharms(actualCharms, weaponClass, level);
-        hasManaCostStat = true;
+        const actualCharmReduction = getManaCostReductionFromCharms(actualCharms, weaponClass, level);
+        const selectedCharmReduction = getManaCostReductionFromCharms(selectedCharms, weaponClass, level);
+
+        if (hasEquipmentManaCostStat) {
+          actualReduction += rawReduction;
+          selectedReduction += rawReduction + selectedCharmReduction - actualCharmReduction;
+        } else {
+          actualReduction += actualCharmReduction;
+          selectedReduction += selectedCharmReduction;
+        }
+        hasManaCostStat = hasManaCostStat || hasEquipmentManaCostStat
+          || actualCharmReduction > 0 || selectedCharmReduction > 0;
       });
 
       if (!hasManaCostStat) return 0;
@@ -5912,11 +5927,12 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         const liveItem = findLiveRowByEnglishRow(sectionKey, enRow);
         if (!liveItem?.td2) return;
         const key = liveItem.tr || liveItem.td2;
-        const entry = pending.get(key) || { item: liveItem, diff: 0 };
+        const entry = pending.get(key) || { item: liveItem, diff: 0, isManaCostModifier: false };
         entry.diff += diff;
+        if (title === 'Mana Cost') entry.isManaCostModifier = true;
         pending.set(key, entry);
       });
-      pending.forEach(({ item, diff }) => setPanelIncrementSource(item, 'charm', diff));
+      pending.forEach(({ item, diff, isManaCostModifier }) => setPanelIncrementSource(item, 'charm', diff, isManaCostModifier));
       renderPanelIncrements();
     }
 
@@ -6204,7 +6220,12 @@ HVEA_MATERIALS.inventoryMaterialNames = [
 
       document.body.appendChild(pop);
       popup = pop;
-      setActualCharmSelections(key, charmState.selected[key] || [], getCharmSlots()[key]);
+      setActualCharmSelections(
+        key,
+        charmState.selected[key] || [],
+        getCharmSlots()[key],
+        charmState.actualCharms[key] || [],
+      );
       await ensureEnglishStatsPanel();
       if (!popup || !popup.isConnected) return;
       loadActualSlotCharms(key);
