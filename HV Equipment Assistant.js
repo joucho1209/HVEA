@@ -2,7 +2,7 @@
 // @name         HV 装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.2.2
+// @version      1.2.3
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -10066,6 +10066,9 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     importMainButton.addEventListener("click", async () => {
       if (state.busy) {
         showToast("正在读取装备，请稍候。", "warn");
+        return;
+      }
+      if ((state.baseMainEquip || state.mainEquip) && !confirm("当前已导入主装备，是否替换为当前页面的主装备？")) {
         return;
       }
       const mainEquip = await getPageMainEquip();
