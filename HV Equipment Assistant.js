@@ -2,7 +2,7 @@
 // @name         HV 装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.2.1
+// @version      1.2.2
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -443,7 +443,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
 
   const QUALITY_CAP = {
     'Superior': 10,
-    'Exquisite': 10,
+    'Exquisite': 15,
     'Magnificent': 20,
     'Legendary': 25,
     'Peerless': 30,
@@ -4315,8 +4315,16 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         getReq: level => ({ low: 50, mid: 0, high: 0, rare: level <= 5 ? 1 : 2, legendaryCore: 0, peerlessCore: 0, credits: 1000 })
       },
       '优良': {
-        maxLevel: 10, needCore: false,
-        getReq: level => ({ low: 100, mid: 0, high: 0, rare: level <= 5 ? 1 : 2, legendaryCore: 0, peerlessCore: 0, credits: 5000 })
+        maxLevel: 15, needCore: false,
+        getReq: level => ({
+          low: 100,
+          mid: 0,
+          high: 0,
+          rare: level <= 5 ? 1 : level <= 10 ? 2 : 3,
+          legendaryCore: 0,
+          peerlessCore: 0,
+          credits: level <= 10 ? 5000 : 10000
+        })
       },
       '史诗': {
         maxLevel: 20, needCore: false,
@@ -6317,16 +6325,19 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     'Ciallo ～(∠・ω< )⌒☆！',
     '🐧咕咕嘎嘎!🐧',
     'KFC疯狂星期四V我50',
+    '何意味是什么意思',
     '据说会使用火的只有人类☝️',
     '🙌临👆兵👉斗👈者👇，皆👊列✊阵👌在👆前🖐️😡',
     '🍎啊噗噜派🍎',
     '🍊直到大地变成一颗酸橙🍊',
+    '⚡天雷滚滚，你想往哪里逃！⚡',
+    '⚡三元归一剑贯魑魅，一点浩气霆击祸祟！⚡',
     '有什么内部消息别瞒着兄弟啊',
     '苦痛啊，你便是我的唯一...',
     '我 一会 直看着你…👁️👁️👁️',
     '一切都好可怕！！！游戏变困难了！',
     '爱丽丝爱丽丝爱丽・ｿ關ｽ蜈･逋ｽ蜈皮噪豢樒ｩｴ荵倶ｸｭ',
-    '先是龙吼然后是T3然后是龙吼然后是T3然后是龙吼然后是T3然后是龙吼...',
+    '不知道动了谁的蛋糕、蛋挞、慕斯、驴打滚、桂花糖芋苗、蝴蝶酥、双皮奶、椰汁西米糕',
     '一股强劲的音乐响起，好像是一首很老的歌...',
     '你们听说过，侠客行的故事吗？元和二年...',
     '<玩家>看着自己的内脏变成了“外脏”',
@@ -6354,6 +6365,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     '君に伝えたいことが、君に届けたいことが',
     '🍋🍈🍪🍋🍈🍪🍋🍈🍋🍈🍪🍋🍈🍪🍪',
     'いますぐ輪廻',
+    'バカみたいに',
     'INTERNET OVERDOSE',
     'INTERNET YAMERO',
     'From a Place of Love',
@@ -6364,6 +6376,8 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     'U咩瓦帕瓦！U咩瓦帕瓦！U咩瓦帕瓦！',
     '也去试试HV Monster Manager吧',
     '开杯子没出对名只是存进去了 不开杯才是真没了喔',
+    'warding滚出hv',
+    'protection也滚出hv',
     '啊？群友都没出过对名P吗？',
     '拍卖场上无父子，干就完了！',
     '警钟长鸣 单价1.2M买入19个秘银袋转手单价1.4M卖',
@@ -8630,10 +8644,23 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       return;
     }
 
-    state.mainEquip = equips[0];
+    const nextMainEquip = equips[0];
+    const previousMainEquip = state.baseMainEquip || state.mainEquip;
+    const previousSignature = previousMainEquip ? getManualFusionSignature(previousMainEquip) : "";
+    const nextSignature = getManualFusionSignature(nextMainEquip);
+    const clearMaterials = Boolean(
+      previousMainEquip
+      && state.allEquips.length
+      && previousSignature !== nextSignature,
+    );
+    const clearedCount = clearMaterials ? state.allEquips.length : 0;
+
+    state.mainEquip = nextMainEquip;
     state.baseMainEquip = cloneEquipment(state.mainEquip, "main");
     state.attrKeys = Object.keys(state.mainEquip.attrs);
-    state.allEquips = state.allEquips.filter((equip) => equip.id !== state.mainEquip.id);
+    state.allEquips = clearMaterials
+      ? []
+      : state.allEquips.filter((equip) => equip.id !== state.mainEquip.id);
     state.allEquips.forEach((equip) => {
       equip.used = false;
     });
@@ -8641,10 +8668,11 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     refreshUI();
     saveState();
 
+    const materialMessage = clearedCount ? `；已清空 ${clearedCount} 件旧种类素材` : "";
     if (equips.length > 1) {
-      setStatus(`已设置主装备：${state.mainEquip}；其余行已忽略。`, "warn");
+      setStatus(`已设置主装备：${state.mainEquip}${materialMessage}；其余行已忽略。`, "warn");
     } else {
-      setStatus(`已设置主装备：${state.mainEquip}。`, "ok");
+      setStatus(`已设置主装备：${state.mainEquip}${materialMessage}。`, "ok");
     }
   }
 
@@ -9989,9 +10017,14 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     function parseMainEquipFromModify(html, id, eqtType) {
       const doc = new DOMParser().parseFromString(html, "text/html");
       const root = doc.querySelector(".showequip") || doc;
-      let name = "";
-      const firstDiv = root.querySelector(".showequip > div:first-child, #popup_box > div:first-child");
-      if (firstDiv) name = String(firstDiv.textContent || "").replace(/\s+/g, " ").trim();
+      const titleBlock = root.firstElementChild;
+      const originalNameLine = titleBlock?.children?.[1];
+      const displayNameLine = titleBlock?.children?.[0] || titleBlock;
+      let name = String(originalNameLine?.textContent || "")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (name.startsWith("(") && name.endsWith(")")) name = name.slice(1, -1).trim();
+      if (!name) name = String(displayNameLine?.textContent || "").replace(/\s+/g, " ").trim();
       if (!name) name = String(id);
       const attrs = {};
       root.querySelectorAll('[title*="Base"], [title*="基础值"]').forEach((node) => {
@@ -10017,36 +10050,16 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       if (!mainId) return null;
       mainId = String(mainId);
 
-      // 1) 页面动态 JS（dynjs_equip）里通常直接带有主装备的校验码与完整属性
-      const pageData = (typeof window !== "undefined" && (window.dynjs_equip || window.dynjs_eqstore))
-        || (typeof unsafeWindow !== "undefined" && (unsafeWindow.dynjs_equip || unsafeWindow.dynjs_eqstore))
-        || {};
-      const data = pageData[mainId];
-      if (data) {
-        if (data.d) {
-          try {
-            const wrapped = `<div class="showequip"><div>${data.t || mainId}</div>${data.d}</div>`;
-            return parseEquipmentPage(wrapped, Number(mainId), data.k ? `https://hentaiverse.org/equip/${mainId}/${data.k}` : "");
-          } catch {}
-        }
-        if (data.k) {
-          try {
-            const url = `https://hentaiverse.org/equip/${mainId}/${data.k}`;
-            const html = await requestEquipmentHtml(url);
-            return parseEquipmentPage(html, Number(mainId), url);
-          } catch {}
-        }
+      // 改造页的重命名按钮保留原始装备名，优先用它避免改名影响融合类型判断。
+      const modifyLink = document.querySelector('#eqback a[href*="screen=modify"]');
+      if (modifyLink?.href) {
+        try {
+          const modifyUrl = new URL(modifyLink.href, location.href);
+          const filter = modifyUrl.searchParams.get("filter") || "";
+          const html = await requestEquipmentHtml(modifyUrl.href);
+          return parseMainEquipFromModify(html, Number(mainId), eqtTypeFromFilter(filter));
+        } catch {}
       }
-
-      // 2) 兜底：读取 modify 页面，从 showequip 直接解析主装备
-      try {
-        const itemLink = document.querySelector('#itemlist a[href*="eqids[]"]') || document.querySelector('#eqback a[href*="eqids[]"]');
-        const href = itemLink?.href || "";
-        const filter = href ? new URL(href, location.href).searchParams.get("filter") || "" : "";
-        const eqtType = eqtTypeFromFilter(filter);
-        const html = await requestEquipmentHtml(`https://hentaiverse.org/?s=Bazaar&ss=am&screen=modify&filter=${encodeURIComponent(filter)}&eqids[]=${mainId}`);
-        return parseMainEquipFromModify(html, Number(mainId), eqtType);
-      } catch {}
       return null;
     }
 
@@ -10070,6 +10083,19 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         showToast("正在读取装备，请稍候。", "warn");
         return;
       }
+
+      const activeMainEquip = state.baseMainEquip || state.mainEquip;
+      if (activeMainEquip) {
+        showToast("正在校验当前页面主装备……", "", 0);
+        const pageMainEquip = await getPageMainEquip();
+        const activeSignature = getManualFusionSignature(activeMainEquip);
+        const pageSignature = getManualFusionSignature(pageMainEquip);
+        if (!pageMainEquip || activeSignature !== pageSignature) {
+          showToast("当前页面主装备与已导入主装备不是同种类，未导入融合素材。", "warn");
+          return;
+        }
+      }
+
       const rows = getEquipmentRows();
       const links = [...new Set(
         rows
