@@ -2,7 +2,7 @@
 // @name         HV 装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.2.3
+// @version      1.2.4
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -2764,7 +2764,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     }
 
     let gCharBaseProf = null;
-    const CHAR_BASE_PROF_STORAGE_KEY = 'HVEA_char_base_prof';
+    const CHAR_BASE_PROF_STORAGE_KEY = `HVEA_char_base_prof_${IS_ISEKAI_PAGE ? 'isekai' : 'main'}`;
     const CHAR_BASE_PROF_STORAGE_TTL = 12 * 60 * 60 * 1000;
 
     function round1Prof(value) {
@@ -4309,6 +4309,32 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     const HISTORY_PRICE_SOURCES = new Set(['day', 'week', 'month', 'year']);
     const DISPLAY_NAME_MAP = new Map(Object.entries(HVEA_MATERIALS.displayNames));
 
+    function highQualityMaterialTier(level) {
+      return Math.min(Math.ceil(level / 5), 5);
+    }
+
+    function highQualityForgeReq(level) {
+      const tier = highQualityMaterialTier(level);
+      return {
+        low: 0,
+        mid: 100,
+        high: Math.min(level * 5, 50),
+        rare: tier,
+        legendaryCore: tier,
+        peerlessCore: 0,
+        credits: level <= 10 ? 25000 : level <= 20 ? 50000 : 100000
+      };
+    }
+
+    function peerlessForgeReq(level) {
+      const req = highQualityForgeReq(level);
+      if (level > 25) {
+        req.legendaryCore = 0;
+        req.peerlessCore = 5;
+      }
+      return req;
+    }
+
     const QUALITY_CONFIG = {
       '上等': {
         maxLevel: 10, needCore: false,
@@ -4339,36 +4365,15 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       },
       '传奇': {
         maxLevel: 25, needCore: true,
-        getReq: level => ({
-          low: 0, mid: 100,
-          high: level <= 5 ? level * 5 : 50,
-          rare: level <= 5 ? 1 : level <= 10 ? 2 : level <= 15 ? 3 : level <= 20 ? 4 : 5,
-          legendaryCore: level <= 5 ? 1 : level <= 10 ? 2 : level <= 15 ? 3 : level <= 20 ? 4 : 5,
-          peerlessCore: 0,
-          credits: level <= 10 ? 25000 : level <= 20 ? 50000 : 100000
-        })
+        getReq: highQualityForgeReq
       },
       '无双': {
         maxLevel: 30, needCore: true,
-        getReq: level => ({
-          low: 0, mid: 100,
-          high: level <= 5 ? level * 5 : level <= 10 ? 30 + (level - 6) * 5 : 50,
-          rare: level <= 5 ? 1 : level <= 10 ? 2 : level <= 15 ? 3 : level <= 20 ? 4 : 5,
-          legendaryCore: level <= 25 ? (level <= 5 ? 1 : level <= 10 ? 2 : level <= 15 ? 3 : level <= 20 ? 4 : 5) : 0,
-          peerlessCore: level <= 25 ? 0 : 5,
-          credits: level <= 10 ? 25000 : level <= 20 ? 50000 : 100000
-        })
+        getReq: peerlessForgeReq
       },
       '至尊': {
         maxLevel: 33, needCore: true,
-        getReq: level => ({
-          low: 0, mid: 100,
-          high: level <= 5 ? level * 5 : level <= 10 ? 30 + (level - 6) * 5 : 50,
-          rare: level <= 5 ? 1 : level <= 10 ? 2 : level <= 15 ? 3 : level <= 20 ? 4 : 5,
-          legendaryCore: level <= 25 ? (level <= 5 ? 1 : level <= 10 ? 2 : level <= 15 ? 3 : level <= 20 ? 4 : 5) : 0,
-          peerlessCore: level <= 25 ? 0 : 5,
-          credits: level <= 10 ? 25000 : level <= 20 ? 50000 : 100000
-        })
+        getReq: peerlessForgeReq
       }
     };
 
@@ -6366,6 +6371,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     '🍋🍈🍪🍋🍈🍪🍋🍈🍋🍈🍪🍋🍈🍪🍪',
     'いますぐ輪廻',
     'バカみたいに',
+    '月が綺麗ねと言われたい！',
     'INTERNET OVERDOSE',
     'INTERNET YAMERO',
     'From a Place of Love',
