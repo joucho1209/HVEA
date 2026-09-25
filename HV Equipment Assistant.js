@@ -2,7 +2,7 @@
 // @name         HV 装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.2.4
+// @version      1.3.0
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -2465,7 +2465,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         if (charmSimulation && typeof charmSimulation.refresh === 'function') {
             charmSimulation.refresh();
         }
-        scheduleMaccCheckRefresh();
+        scheduleDamagePanelRefresh();
     }
 
     let playerLevelCacheElement = null;
@@ -2485,39 +2485,120 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         playerLevelCacheValue = match ? parseInt(match[1], 10) : 1;
         return playerLevelCacheValue;
     }
-    let maccCheckStyleAdded = false;
-    let maccCheckObserver = null;
-    let maccCheckMageResizeObserver = null;
-    let maccCheckResizeBound = false;
-    let maccCheckMageResizeTarget = null;
-    let maccCheckDomBound = false;
-    let maccCheckStatsObserver = null;
-    let maccCheckStatsObserverTarget = null;
-    let maccCheckRefreshTimer = null;
-    let maccCheckRefreshRequest = null;
-    let maccCheckGeneration = 0;
-    let maccCheckResizeHandler = null;
-    let maccCheckDomChangeHandler = null;
+    let damagePanelStyleAdded = false;
+    let damagePanelObserver = null;
+    let damagePanelMageResizeObserver = null;
+    let damagePanelMageResizeTarget = null;
+    let damagePanelStatsObserver = null;
+    let damagePanelStatsObserverTarget = null;
+    let damagePanelRefreshTimer = null;
+    let damagePanelRefreshRequest = null;
+    let damagePanelGeneration = 0;
+    let damagePanelResizeHandler = null;
+    let damagePanelDomChangeHandler = null;
 
-    function scheduleMaccCheckRefresh() {
-        if (maccCheckRefreshTimer !== null) return;
-        maccCheckRefreshTimer = window.setTimeout(() => {
-            maccCheckRefreshTimer = null;
-            refreshMaccCheckPanel();
+    const DAMAGE_ELEMENTS = {
+        Fire: { label: '火焰', index: 0 },
+        Cold: { label: '冰冷', index: 1 },
+        Elec: { label: '闪电', index: 2 },
+        Wind: { label: '疾风', index: 3 },
+        Holy: { label: '神圣', index: 4 },
+        Dark: { label: '黑暗', index: 5 },
+    };
+    const DAMAGE_DD_BONUSES = [0, 10, 15, 20, 25, 30, 35, 40, 45, 50];
+    const DAMAGE_SETTINGS_KEY = `HVEA_damage_settings_${IS_ISEKAI_PAGE ? 'isekai' : 'main'}`;
+    const DAMAGE_CHAOS_LEVEL = 20;
+    // T3喵层计算-Qine-V0.3.0.xlsx: monster rows 4-16, columns E:J, N, P, AD:AI.
+    const DAMAGE_MONSTERS = [
+        { name: '节肢动物', resistance: [25, -25, 25, 25, 0, 0], endurance: 100, wisdom: 40, growth: [1, 1.5, 1, 1, 1.25, 1.25] },
+        { name: '飞禽', resistance: [-25, 0, 25, -50, 0, 0], endurance: 40, wisdom: 50, growth: [1.5, 1.25, 1, 1.75, 1.25, 1.25] },
+        { name: '兽类', resistance: [-25, 25, 0, 25, 0, 0], endurance: 70, wisdom: 20, growth: [1.5, 1, 1.25, 1, 1.25, 1.25] },
+        { name: '天使', resistance: [25, 25, 25, 25, 25, -50], endurance: 50, wisdom: 80, growth: [1, 1, 1, 1, 1, 1.75] },
+        { name: '魔鬼', resistance: [25, 25, 25, 25, -50, 25], endurance: 40, wisdom: 50, growth: [1, 1, 1, 1, 1.75, 1] },
+        { name: '龙类', resistance: [25, -50, 25, -25, 0, 0], endurance: 90, wisdom: 60, growth: [1, 1.75, 1, 1.5, 1.25, 1.25] },
+        { name: '元素精灵', resistance: [25, 25, 25, 25, 25, 25], endurance: 40, wisdom: 120, growth: [1, 1, 1, 1, 1, 1] },
+        { name: '巨人', resistance: [25, 25, -25, -25, 0, 0], endurance: 120, wisdom: 10, growth: [1, 1, 1.5, 1.5, 1.25, 1.25] },
+        { name: '类人类', resistance: [0, 0, 0, 0, 0, -25], endurance: 50, wisdom: 70, growth: [1.25, 1.25, 1.25, 1.25, 1.25, 1.5] },
+        { name: '人形机器人', resistance: [25, 25, -50, 25, 25, 0], endurance: 70, wisdom: 30, growth: [1, 1, 1.75, 1, 1, 1.25] },
+        { name: '爬虫类', resistance: [25, -50, 25, 0, 0, 0], endurance: 80, wisdom: 40, growth: [1, 1.75, 1, 1.25, 1.25, 1.25] },
+        { name: '妖精', resistance: [25, 25, 25, 25, 25, -50], endurance: 20, wisdom: 60, growth: [1, 1, 1, 1, 1, 1.75] },
+        { name: '不死族', resistance: [-50, 25, 25, 25, -50, 25], endurance: 100, wisdom: 20, growth: [1.75, 1, 1, 1, 1.75, 1] },
+    ];
+
+    function damageResistanceChance(ratio) {
+        if (ratio <= 0) return 0.01;
+        const chance = ratio >= 2
+            ? 0.5 + Math.log(ratio - 1) * 0.1004
+            : ratio >= 1 ? ratio * 0.25 : 0.37 - 0.12 / ratio;
+        return Math.max(0.01, Math.min(1, chance));
+    }
+
+    function damageResistanceMultiplier(chance) {
+        const pass = 1 - chance;
+        return pass ** 3 + 3 * chance * pass ** 2 * 0.5 +
+            3 * chance ** 2 * pass * 0.25 + chance ** 3 * 0.1;
+    }
+
+    function calculateSpellDamage({ monster, level, element, mdb, edb, proficiency, macc, cr, dd, tower, imperil, critMultiplier }) {
+        const pf = Math.max(0, Math.min(1, (proficiency - level) / level));
+        const profReduction = pf ** 1.5 * 50;
+        const primary = monster.endurance + 25 * Math.max(6, Math.min(10, monster.endurance * 0.1));
+        const secondary = monster.wisdom + 25 * Math.max(6, Math.min(10, monster.wisdom * 0.1));
+        const scaled = value => Math.floor(value * level * 0.01 + level ** 1.076675 * 0.3325);
+        const scaledEndurance = scaled(primary);
+        const monsterHealth = (100 + 500 * 10 + scaledEndurance * 5) * 2 *
+            (1 + DAMAGE_CHAOS_LEVEL * 0.05) * Math.max(1, (level - 100) * 0.01);
+        const magicMitigation = 1 - 900 / (900 + scaledEndurance + scaled(secondary) / 2) * (1 - DAMAGE_CHAOS_LEVEL * 0.01);
+        const elementMitigation = monster.resistance[element.index] + 50 * monster.growth[element.index];
+        const remainingMitigation = imperil
+            ? Math.max(0, elementMitigation - (element.index < 4 ? 40 : 25) - profReduction)
+            : elementMitigation - profReduction;
+        const received = (1 - magicMitigation * (imperil ? 0.5 : 1)) * (1 - remainingMitigation / 100);
+        const resistValue = level * 1.25 * (1 + DAMAGE_CHAOS_LEVEL * 0.05);
+        const ratio = Math.max(0, resistValue * (1 - cr / 100 - pf / 2) / (macc + 100));
+        const resistChance = damageResistanceChance(ratio);
+        const resistMultiplier = damageResistanceMultiplier(resistChance);
+        const base = mdb * (1 + edb / 100) * (1 + dd / 100) * (1 + tower * 0.001) * 1.25 * critMultiplier;
+        return {
+            pf, monsterHealth, resistValue, ratio, resistChance, magicMitigation, elementMitigation, remainingMitigation,
+            t3: base * 7.5 * received, t2: base * 5.85 * received,
+            t3Expected: base * 7.5 * received * resistMultiplier,
+            t2Expected: base * 5.85 * received * resistMultiplier,
+        };
+    }
+
+    function scheduleDamagePanelRefresh() {
+        if (damagePanelRefreshTimer !== null) return;
+        damagePanelRefreshTimer = window.setTimeout(() => {
+            damagePanelRefreshTimer = null;
+            refreshDamagePanel();
         }, 0);
     }
 
-    function ensureMaccCheckStyle() {
-        if (maccCheckStyleAdded) return;
-        maccCheckStyleAdded = true;
+    function ensureDamagePanelStyle() {
+        if (damagePanelStyleAdded) return;
+        damagePanelStyleAdded = true;
         const css = [
-            '#hv-macc-panel { position:absolute; bottom:100px; right:100%; margin-right:10px; border:2px solid var(--color-border-default, #5C0D11); border-radius:9px; padding:5px 10px; background:var(--color-bg-default, #EDEBDF); color:var(--color-font-default, #5C0D11); white-space:nowrap; font-size:10pt; line-height:18px; z-index:4; }',
-            '#hv-macc-panel p { margin:0 0 3px; font-size:10pt; font-weight:bold; }',
-            '#hv-macc-panel table { font-size:9pt; line-height:18px; white-space:nowrap; border-collapse:collapse; }',
-            '#hv-macc-panel td { padding:1px 0; }',
-            '#hv-macc-panel td:first-child { text-align:right; padding-right:6px; color:var(--color-font-default, #5C0D11); }',
-            '#hv-macc-panel td:last-child { text-align:left; color:var(--color-font-highlight, #c00); }',
-            '#hv-macc-panel .hv-macc-profinput input { width:72px; color:var(--color-font-highlight,#c00); background:transparent; border:none; box-shadow:none; font-size:9pt; line-height:18px; padding:0; text-align:left; vertical-align:baseline; }',
+            '#eqch_stats .hvut-eq-stats { display:none !important; }',
+            '#hv-mage-panel { position:absolute; bottom:100px; right:100%; margin-right:10px; width:190px; box-sizing:border-box; border:2px solid var(--color-border-default, #5C0D11); border-radius:9px; padding:5px 10px; background:var(--color-bg-default, #EDEBDF); color:var(--color-font-default, #5C0D11); white-space:nowrap; font-size:10pt; line-height:18px; z-index:4; }',
+            '#hv-mage-panel p { margin:0 0 3px; font-size:10pt; font-weight:bold; }',
+            '#hv-mage-panel table { font-size:9pt; line-height:18px; white-space:nowrap; border-collapse:collapse; }',
+            '#hv-mage-panel td { padding:1px 0; }',
+            '#hv-mage-panel td:first-child { text-align:right; padding-right:3px; color:var(--color-font-highlight, #c00); }',
+            '#hv-mage-panel td:last-child { text-align:left; }',
+            '#hv-damage-panel { position:absolute; bottom:100px; display:grid; grid-template-columns:190px minmax(0, 1fr); column-gap:12px; border:2px solid var(--color-border-default, #5C0D11); border-radius:9px; padding:6px 10px; background:var(--color-bg-default, #EDEBDF); color:var(--color-font-default, #5C0D11); width:min(410px, calc(100vw - 16px)); max-height:calc(100vh - 16px); overflow-y:auto; box-sizing:border-box; font-size:9pt; line-height:19px; z-index:1001; }',
+            '#hv-damage-panel p { grid-column:1 / -1; margin:0 0 4px; font-size:10pt; font-weight:bold; }',
+            '#hv-damage-panel label { display:flex; justify-content:space-between; align-items:center; gap:6px; min-height:24px; white-space:nowrap; }',
+            '#hv-damage-panel select, #hv-damage-panel input[type=number] { width:94px; box-sizing:border-box; font:inherit; color:inherit; background:var(--color-bg-default, #EDEBDF); border:1px solid var(--color-border-default, #5C0D11); border-radius:3px; }',
+            '#hv-damage-panel .hv-damage-toggles { display:flex; align-items:center; justify-content:space-between; min-height:24px; }',
+            '#hv-damage-panel .hv-damage-toggles label { display:inline-flex; justify-content:flex-start; gap:6px; min-height:24px; }',
+            '#hv-damage-panel input[type=checkbox] { margin:0; }',
+            '#hv-damage-panel table { width:max-content; max-width:100%; border-collapse:collapse; line-height:18px; }',
+            '#hv-damage-panel td { padding:0; white-space:nowrap; }',
+            '#hv-damage-panel td:first-child { padding-right:10px; }',
+            '#hv-damage-panel td:last-child { text-align:right; color:var(--color-font-highlight, #c00); font-variant-numeric:tabular-nums; }',
+            '#hv-damage-panel [data-role=damage-error] { color:var(--color-font-highlight, #c00); }',
+            '@media (max-width:520px) { #hv-damage-panel { grid-template-columns:minmax(0, 1fr); } #hv-damage-panel p { grid-column:1; } #hv-damage-panel .hv-damage-results { border-top:1px solid var(--color-border-default, #5C0D11); margin-top:6px; padding-top:4px; } }',
         ].join('\n');
         if (typeof GM_addStyle === 'function') GM_addStyle(css);
         else {
@@ -2527,91 +2608,229 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         }
     }
 
-    function positionMaccCheckPanel() {
-        const panel = document.getElementById('hv-macc-panel');
+    function positionDamagePanel() {
+        const panel = document.getElementById('hv-damage-panel');
         const stats = document.getElementById('eqch_stats');
         if (!panel || !stats) return;
-        const mage = stats.querySelector('.hvut-eq-stats');
+        const mage = stats.querySelector('#hv-mage-panel');
         if (mage && typeof ResizeObserver === 'function') {
-            if (maccCheckMageResizeObserver && maccCheckMageResizeTarget !== mage) {
-                maccCheckMageResizeObserver.disconnect();
-                maccCheckMageResizeObserver = null;
-                maccCheckMageResizeTarget = null;
+            if (damagePanelMageResizeObserver && damagePanelMageResizeTarget !== mage) {
+                damagePanelMageResizeObserver.disconnect();
+                damagePanelMageResizeObserver = null;
+                damagePanelMageResizeTarget = null;
             }
-            if (!maccCheckMageResizeObserver) {
-                maccCheckMageResizeObserver = new ResizeObserver(positionMaccCheckPanel);
-                maccCheckMageResizeObserver.observe(mage);
-                maccCheckMageResizeTarget = mage;
+            if (!damagePanelMageResizeObserver) {
+                damagePanelMageResizeObserver = new ResizeObserver(positionDamagePanel);
+                damagePanelMageResizeObserver.observe(mage);
+                damagePanelMageResizeTarget = mage;
             }
-        } else if (maccCheckMageResizeObserver) {
-            maccCheckMageResizeObserver.disconnect();
-            maccCheckMageResizeObserver = null;
-            maccCheckMageResizeTarget = null;
+        } else if (damagePanelMageResizeObserver) {
+            damagePanelMageResizeObserver.disconnect();
+            damagePanelMageResizeObserver = null;
+            damagePanelMageResizeTarget = null;
         }
-        const mageWidth = mage ? mage.offsetWidth : 0;
-        if (mage && mageWidth > 0) {
-            panel.style.right = 'calc(100% + ' + (mageWidth + 10) + 'px)';
-            panel.style.marginRight = '10px';
+        const statsRect = stats.getBoundingClientRect();
+        const mageRect = mage?.getBoundingClientRect();
+        const gap = 10;
+        let left;
+        let top;
+        if (mageRect) {
+            left = mageRect.left - panel.offsetWidth - gap;
+            top = mageRect.bottom - panel.offsetHeight;
         } else {
-            panel.style.right = '100%';
-            panel.style.marginRight = '10px';
+            left = statsRect.right + gap;
+            top = statsRect.top;
         }
+        const containingRect = (panel.offsetParent || document.documentElement).getBoundingClientRect();
+        panel.style.position = 'absolute';
+        panel.style.right = 'auto';
+        panel.style.bottom = 'auto';
+        panel.style.left = (left - containingRect.left) + 'px';
+        panel.style.top = (top - containingRect.top) + 'px';
+        const actual = panel.getBoundingClientRect();
+        panel.style.left = (left - containingRect.left + left - actual.left) + 'px';
+        panel.style.top = (top - containingRect.top + top - actual.top) + 'px';
     }
 
-    function ensureMaccCheckPanel() {
-        const stats = document.getElementById('eqch_stats');
-        if (!stats) return null;
-        ensureMaccCheckStyle();
-        let panel = document.getElementById('hv-macc-panel');
+    function restoreDamageSettings(panel) {
+        const saved = HVEA_SHARED.storage.readJson(DAMAGE_SETTINGS_KEY, {});
+        const dd = Number(saved?.dd);
+        const tower = Number(saved?.tower);
+        panel.querySelector('[data-input="dd"]').value =
+            DAMAGE_DD_BONUSES.includes(dd) ? String(dd) : '15';
+        panel.querySelector('[data-input="tower"]').value =
+            Number.isFinite(tower) && tower >= 0 && tower <= 1000 ? String(tower) : '0';
+    }
+
+    function bindDamageSettingsCache(panel) {
+        if (panel.dataset.damageSettingsBound) return;
+        panel.dataset.damageSettingsBound = '1';
+        const save = event => {
+            if (!event.target.matches('[data-input="dd"], [data-input="tower"]')) return;
+            const saved = HVEA_SHARED.storage.readJson(DAMAGE_SETTINGS_KEY, {});
+            const settings = saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+            const dd = Number(panel.querySelector('[data-input="dd"]').value);
+            const towerInput = panel.querySelector('[data-input="tower"]').value.trim();
+            const tower = Number(towerInput);
+            if (DAMAGE_DD_BONUSES.includes(dd)) settings.dd = dd;
+            if (towerInput && Number.isFinite(tower) && tower >= 0 && tower <= 1000) settings.tower = tower;
+            HVEA_SHARED.storage.writeJson(DAMAGE_SETTINGS_KEY, settings);
+        };
+        panel.addEventListener('input', save);
+        panel.addEventListener('change', save);
+    }
+
+    function ensureDamagePanelNode(stats) {
+        let panel = document.getElementById('hv-damage-panel');
+        if (panel) {
+            if (!panel.querySelector('.hv-damage-settings')) {
+                const settings = document.createElement('div');
+                settings.className = 'hv-damage-settings';
+                const results = document.createElement('div');
+                results.className = 'hv-damage-results';
+                panel.querySelectorAll('label').forEach(label => settings.appendChild(label));
+                results.append(panel.querySelector('table'), panel.querySelector('[data-role="damage-error"]'));
+                panel.append(settings, results);
+            }
+            if (!panel.querySelector('[data-input="crit"]')) {
+                const imperilLabel = panel.querySelector('[data-input="imperil"]')?.closest('label');
+                if (imperilLabel) {
+                    const toggles = document.createElement('div');
+                    toggles.className = 'hv-damage-toggles';
+                    imperilLabel.replaceWith(toggles);
+                    toggles.append(imperilLabel);
+                    const critLabel = document.createElement('label');
+                    critLabel.textContent = '暴击';
+                    const critInput = document.createElement('input');
+                    critInput.type = 'checkbox';
+                    critInput.dataset.input = 'crit';
+                    critLabel.append(critInput);
+                    toggles.append(critLabel);
+                }
+            }
+            if (!panel.querySelector('[data-role="damage-health"]')) {
+                const t3Row = panel.querySelector('[data-role="damage-t3-raw"]')?.closest('tr');
+                if (t3Row) {
+                    const healthRow = document.createElement('tr');
+                    healthRow.innerHTML = '<td>怪物血量</td><td data-role="damage-health">--</td>';
+                    t3Row.before(healthRow);
+                }
+            }
+            const label = panel.querySelector('[data-role="damage-element"]')?.previousElementSibling;
+            if (label) label.textContent = '元素 / RF';
+            const oldDD = panel.querySelector('input[data-input="dd"]');
+            if (oldDD) {
+                const select = document.createElement('select');
+                select.dataset.input = 'dd';
+                DAMAGE_DD_BONUSES.forEach((bonus, level) => {
+                    select.add(new Option('DD' + level + ' (' + bonus + '%)', String(bonus)));
+                });
+                select.value = DAMAGE_DD_BONUSES.includes(Number(oldDD.value)) ? oldDD.value : '15';
+                oldDD.parentElement.firstChild.textContent = 'DD';
+                oldDD.replaceWith(select);
+            }
+            bindDamageSettingsCache(panel);
+            return panel;
+        }
+        panel = document.createElement('div');
+        panel.id = 'hv-damage-panel';
+        panel.innerHTML =
+            '<p>伤害计算</p>' +
+            '<div class="hv-damage-settings">' +
+            '<label>怪物种类<select data-input="monster">' +
+            DAMAGE_MONSTERS.map((monster, index) => '<option value="' + index + '">' + monster.name + '</option>').join('') +
+            '</select></label>' +
+            '<label>怪物等级<input data-input="level" type="number" min="1" max="9999" step="1"></label>' +
+            '<label>主元素<select data-input="element"><option value="">自动</option>' +
+            Object.entries(DAMAGE_ELEMENTS).map(([key, value]) => '<option value="' + key + '">' + value.label + '</option>').join('') +
+            '</select></label>' +
+            '<label>DD<select data-input="dd">' +
+            DAMAGE_DD_BONUSES.map((bonus, level) =>
+                '<option value="' + bonus + '"' + (level === 2 ? ' selected' : '') + '>DD' + level + ' (' + bonus + '%)</option>'
+            ).join('') +
+            '</select></label>' +
+            '<label>塔楼层数<input data-input="tower" type="number" min="0" max="1000" step="1" value="0"></label>' +
+            '<div class="hv-damage-toggles"><label>IMP<input data-input="imperil" type="checkbox" checked></label>' +
+            '<label>暴击<input data-input="crit" type="checkbox"></label></div>' +
+            '</div><div class="hv-damage-results">' +
+            '<table><tbody>' +
+            '<tr><td>元素 / RF</td><td data-role="damage-element">--</td></tr>' +
+            '<tr><td>魔法 / 元素缓伤</td><td data-role="damage-mitigation">--</td></tr>' +
+            '<tr><td>怪物抵抗值</td><td data-role="damage-resist-value">--</td></tr>' +
+            '<tr><td>抵抗倍率 / 概率</td><td data-role="damage-resist">--</td></tr>' +
+            '<tr><td>怪物血量</td><td data-role="damage-health">--</td></tr>' +
+            '<tr><td>T3 缓伤后</td><td data-role="damage-t3-raw">--</td></tr>' +
+            '<tr><td>T3 最终期望</td><td data-role="damage-t3">--</td></tr>' +
+            '<tr><td>T2 缓伤后</td><td data-role="damage-t2-raw">--</td></tr>' +
+            '<tr><td>T2 最终期望</td><td data-role="damage-t2">--</td></tr>' +
+            '</tbody></table><div data-role="damage-error"></div></div>';
+        panel.querySelector('[data-input=level]').value = getPlayerLevel();
+        restoreDamageSettings(panel);
+        bindDamageSettingsCache(panel);
+        panel.addEventListener('input', renderDamagePanel);
+        panel.addEventListener('change', renderDamagePanel);
+        stats.appendChild(panel);
+        return panel;
+    }
+
+    function ensureMageStatsPanel(stats) {
+        let panel = stats.querySelector('#hv-mage-panel');
         if (!panel) {
             panel = document.createElement('div');
-            panel.id = 'hv-macc-panel';
+            panel.id = 'hv-mage-panel';
             panel.innerHTML =
-                '<p>穿抗检查</p><table><tbody>' +
-                '<tr><td>当前CR</td><td data-role="cr">--</td></tr>' +
-                '<tr><td>当前PF</td><td data-role="rf">--</td></tr>' +
-                '<tr><td>当前基础熟练</td><td class="hv-macc-profinput"><input id="hv-macc-prof-input" type="number" step="any" min="0" max="600" placeholder="输入模拟值(上限600)"></td></tr>' +
-                '<tr><td>当前Macc</td><td data-role="macc">--</td></tr>' +
-                '<tr><td>穿抗所需Macc</td><td data-role="required">--</td></tr>' +
-                '<tr><td>结论</td><td data-role="qualified">--</td></tr>' +
+                '<p>法师面板数据</p><table><tbody>' +
+                '<tr><td>--</td><td>法师综合分</td></tr>' +
+                '<tr><td>--</td><td>熟练度因子</td></tr>' +
+                '<tr><td>--</td><td>降低抗性</td></tr>' +
+                '<tr><td>--</td><td>魔法反抵抗</td></tr>' +
+                '<tr><td>--</td><td>减益魔法反抵抗</td></tr>' +
+                '<tr><td>--</td><td>治疗加成</td></tr>' +
                 '</tbody></table>';
             stats.appendChild(panel);
         }
-        const profInput = document.getElementById('hv-macc-prof-input');
-        if (profInput && !profInput.dataset.bound) {
-            profInput.dataset.bound = '1';
-            const clampProfInput = () => {
-                const v = Number.parseFloat(profInput.value);
-                if (Number.isFinite(v) && v > 600) profInput.value = '600';
-                renderMaccCheckPanel();
-                scheduleMaccCheckRefresh();
-            };
-            profInput.addEventListener('input', clampProfInput);
-            profInput.addEventListener('change', clampProfInput);
+        const tbody = panel.querySelector('tbody');
+        ['命中率', 'T2T3暴击率', 'T1暴击率'].forEach((label, index) => {
+            if (tbody.rows.length > 6 + index) return;
+            const row = tbody.insertRow();
+            row.insertCell().textContent = '--';
+            row.insertCell().textContent = label;
+        });
+        return panel;
+    }
+
+    function ensureDamagePanel() {
+        const stats = document.getElementById('eqch_stats');
+        if (!stats) return null;
+        ensureDamagePanelStyle();
+        ensureMageStatsPanel(stats);
+        const panel = ensureDamagePanelNode(stats);
+        document.getElementById('hv-macc-panel')?.remove();
+        if (!damagePanelObserver && typeof MutationObserver === 'function') {
+            damagePanelObserver = new MutationObserver(() => {
+                positionDamagePanel();
+                renderMageStatsPanel();
+            });
+            damagePanelObserver.observe(stats, { childList: true, subtree: true });
         }
-        if (!maccCheckObserver && typeof MutationObserver === 'function') {
-            maccCheckObserver = new MutationObserver(positionMaccCheckPanel);
-            maccCheckObserver.observe(stats, { childList: true, subtree: true });
+        if (!damagePanelResizeHandler) {
+            damagePanelResizeHandler = positionDamagePanel;
+            window.addEventListener('resize', damagePanelResizeHandler);
+            window.addEventListener('scroll', damagePanelResizeHandler, { passive: true });
         }
-        if (!maccCheckResizeBound) {
-            maccCheckResizeBound = true;
-            maccCheckResizeHandler = positionMaccCheckPanel;
-            window.addEventListener('resize', maccCheckResizeHandler);
-        }
-        if (!maccCheckDomBound) {
-            maccCheckDomBound = true;
-            maccCheckDomChangeHandler = event => {
+        if (!damagePanelDomChangeHandler) {
+            damagePanelDomChangeHandler = event => {
                 if (event.target?.closest?.('#hv-charm-popup')) {
-                    scheduleMaccCheckRefresh();
+                    scheduleDamagePanelRefresh();
                 }
             };
-            document.addEventListener('change', maccCheckDomChangeHandler, true);
+            document.addEventListener('change', damagePanelDomChangeHandler, true);
         }
         const scrollable = document.getElementById('stats_scrollable');
         if (scrollable && typeof MutationObserver === 'function') {
-            if (maccCheckStatsObserverTarget !== scrollable) {
-                maccCheckStatsObserver?.disconnect();
-                maccCheckStatsObserver = new MutationObserver(mutations => {
+            if (damagePanelStatsObserverTarget !== scrollable) {
+                damagePanelStatsObserver?.disconnect();
+                damagePanelStatsObserver = new MutationObserver(mutations => {
                     const affectsStats = mutations.some(mutation => {
                         if (mutation.type === 'characterData') {
                             return !mutation.target.parentElement?.closest?.('.hv-panel-increment');
@@ -2624,17 +2843,17 @@ HVEA_MATERIALS.inventoryMaterialNames = [
                     });
                     if (!affectsStats) return;
                     invalidateStatsPanelIndex();
-                    scheduleMaccCheckRefresh();
+                    scheduleDamagePanelRefresh();
                 });
-                maccCheckStatsObserver.observe(scrollable, { childList: true, subtree: true, characterData: true });
-                maccCheckStatsObserverTarget = scrollable;
+                damagePanelStatsObserver.observe(scrollable, { childList: true, subtree: true, characterData: true });
+                damagePanelStatsObserverTarget = scrollable;
             }
-        } else if (maccCheckStatsObserver) {
-            maccCheckStatsObserver.disconnect();
-            maccCheckStatsObserver = null;
-            maccCheckStatsObserverTarget = null;
+        } else if (damagePanelStatsObserver) {
+            damagePanelStatsObserver.disconnect();
+            damagePanelStatsObserver = null;
+            damagePanelStatsObserverTarget = null;
         }
-        positionMaccCheckPanel();
+        positionDamagePanel();
         return panel;
     }
 
@@ -2671,15 +2890,44 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         return getLivePanelValue(['Magic Attack', '魔法攻击'], ['Accuracy', '命中']);
     }
 
-    function getMagicProficiencyWithIncrements() {
-        const element = findHighestElementAffinity();
+    function getMagicDamageWithIncrements() {
+        const enRow = findEnglishPanelRow('magic', 'Damage Bonus');
+        if (enRow) {
+            const liveItem = findLiveRowByEnglishRow('magic', enRow);
+            return liveItem ? readLiveRowIncrement(liveItem).value : enRow.value;
+        }
+        return getLivePanelValue(['Magic Attack', '魔法攻击'], ['Damage Bonus', '伤害加成']);
+    }
+
+    function getMagicCritMultiplierWithIncrements() {
+        const enRow = findEnglishPanelRow('magic', 'Crit Multiplier');
+        if (enRow) {
+            const liveItem = findLiveRowByEnglishRow('magic', enRow);
+            return liveItem ? readLiveRowIncrement(liveItem).value : enRow.value;
+        }
+        return getLivePanelValue(['Magic Attack', '魔法攻击'], ['Crit Multiplier', '暴击伤害']);
+    }
+
+    function getElementAffinity(elementName) {
+        const element = DAMAGE_ELEMENTS[elementName];
         if (!element) return null;
+        const enRow = findEnglishPanelRow('spell', elementName);
+        if (enRow) {
+            const liveItem = findLiveRowByEnglishRow('spell', enRow);
+            return liveItem ? readLiveRowIncrement(liveItem).value : enRow.value;
+        }
+        return getLivePanelValue(['Spell Damage Bonus', '法术伤害加成', '魔法伤害加成'], [elementName, element.label]);
+    }
+
+    function getMagicProficiencyWithIncrements(elementName) {
+        const name = elementName || findHighestElementAffinity()?.name;
+        if (!name) return null;
         let profName = 'Elemental';
         let profKeywords = ['Elemental', '元素'];
-        if (/holy/i.test(element.name)) {
+        if (/holy/i.test(name)) {
             profName = 'Divine';
             profKeywords = ['Divine', '神圣'];
-        } else if (/dark|forbidden/i.test(element.name)) {
+        } else if (/dark|forbidden/i.test(name)) {
             profName = 'Forbidden';
             profKeywords = ['Forbidden', '黑暗'];
         }
@@ -2692,27 +2940,126 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         return getLivePanelValue(['Effective Proficiency', '熟练度'], profKeywords);
     }
 
-    function findHighestElementAffinity() {
-        const spellRows = [
-            ['Fire', '火'],
-            ['Cold', '冰'],
-            ['Elec', '雷'],
-            ['Wind', '风'],
-            ['Holy', '圣'],
-            ['Dark', '暗'],
+    function getOtherMagicProficiencyWithIncrements(name, chineseName) {
+        const enRow = findEnglishPanelRow('proficiency', name);
+        if (enRow) {
+            const liveItem = findLiveRowByEnglishRow('proficiency', enRow);
+            return liveItem ? readLiveRowIncrement(liveItem).value : enRow.value;
+        }
+        return getLivePanelValue(['Effective Proficiency', '熟练度'], [name, chineseName]);
+    }
+
+    function renderMageHitRates() {
+        const rows = document.querySelectorAll('#hv-mage-panel table tr');
+        if (rows.length < 9) return;
+        const levelText = document.querySelector('#hv-damage-panel [data-input="level"]')?.value.trim();
+        const monsterLevel = levelText ? Number(levelText) : NaN;
+        const macc = getMagicAccuracyWithIncrements();
+        let values = ['--', '--', '--'];
+        if (Number.isInteger(monsterLevel) && monsterLevel > 0 && Number.isFinite(macc)) {
+            const p = Math.max(0, Math.min(1, 0.7 + (macc + 100) / (monsterLevel * 2 + 100) * 0.1));
+            const grazeChance = 2 * p * (1 - p);
+            const critChance = (0.5 - grazeChance / 2) * 1.25;
+            values = [p, p * critChance, p * p * critChance].map(value => (value * 100).toFixed(2) + '%');
+        }
+        values.forEach((value, index) => {
+            if (rows[6 + index].cells[0].textContent !== value) rows[6 + index].cells[0].textContent = value;
+        });
+    }
+
+    function renderMageStatsPanel() {
+        const rows = document.querySelectorAll('#hv-mage-panel table tr');
+        if (rows.length < 9) return;
+        renderMageHitRates();
+        const element = findHighestElementAffinity();
+        const level = getPlayerLevel();
+        const mdb = getMagicDamageWithIncrements();
+        const proficiency = getMagicProficiencyWithIncrements(element?.name);
+        const deprecating = getOtherMagicProficiencyWithIncrements('Deprecating', '减益');
+        const supportive = getOtherMagicProficiencyWithIncrements('Supportive', '增益');
+        const cr = getCurrentCounterResist();
+        if (!element || level <= 0 ||
+            ![mdb, proficiency, deprecating, supportive, cr].every(Number.isFinite)) return;
+
+        const pf = Math.max(0, Math.min(1, proficiency / level - 1));
+        const deprFactor = Math.max(0, Math.min(1, deprecating / level - 1));
+        const suppFactor = Math.min(1, supportive / level - 1);
+        const values = [
+            String(Math.round(mdb * (1 + element.value / 100))),
+            pf.toFixed(3),
+            (pf ** 1.5 * 50).toFixed(2) + '%',
+            (cr + pf * 50).toFixed(2) + '%',
+            (cr + deprFactor * 50).toFixed(2) + '%',
+            (suppFactor * (suppFactor > 0 ? 50 : 20)).toFixed(2) + '%',
         ];
+        values.forEach((value, index) => {
+            if (rows[index].cells[0].textContent !== value) rows[index].cells[0].textContent = value;
+        });
+        const scoreLabel = rows[0].cells[1];
+        const crLabel = rows[3].cells[1];
+        const shortNames = { Fire: '火', Cold: '冰', Elec: '雷', Wind: '风', Holy: '圣', Dark: '暗' };
+        const nextScoreLabel = DAMAGE_ELEMENTS[element.name].label + ' 法师综合分';
+        const nextCrLabel = shortNames[element.name] + '魔法反抵抗';
+        if (scoreLabel.textContent !== nextScoreLabel) scoreLabel.textContent = nextScoreLabel;
+        if (crLabel.textContent !== nextCrLabel) crLabel.textContent = nextCrLabel;
+    }
+
+    function renderDamagePanel() {
+        const panel = document.getElementById('hv-damage-panel');
+        if (!panel || !panel.isConnected) return;
+        renderMageHitRates();
+        const input = role => panel.querySelector('[data-input="' + role + '"]');
+        const output = (role, value) => { panel.querySelector('[data-role="damage-' + role + '"]').textContent = value; };
+        const num = role => input(role).value.trim() === '' ? NaN : Number(input(role).value);
+        const monster = DAMAGE_MONSTERS[Number(input('monster').value)];
+        const level = num('level');
+        const dd = num('dd');
+        const tower = num('tower');
+        const selectedName = input('element').value || findHighestElementAffinity()?.name;
+        const element = DAMAGE_ELEMENTS[selectedName];
+        const mdb = getMagicDamageWithIncrements();
+        const edb = getElementAffinity(selectedName);
+        const macc = getMagicAccuracyWithIncrements();
+        const cr = getCurrentCounterResist();
+        const proficiency = getMagicProficiencyWithIncrements(selectedName);
+        const critMultiplier = input('crit').checked ? getMagicCritMultiplierWithIncrements() : 1;
+        const valid = monster && element && Number.isInteger(level) && level > 0 &&
+            [mdb, edb, proficiency, macc, cr, dd, tower, critMultiplier].every(Number.isFinite) &&
+            critMultiplier > 0 &&
+            macc > -100 && dd >= 0 && tower >= 0;
+        const error = panel.querySelector('[data-role="damage-error"]');
+        if (!valid) {
+            for (const role of ['element', 'mitigation', 'resist-value', 'resist', 'health', 't3-raw', 't3', 't2-raw', 't2']) output(role, '--');
+            error.textContent = !element ? '未读取到主元素' :
+                input('crit').checked && !(critMultiplier > 0) ? '未读取到魔法暴击伤害倍率' :
+                ![mdb, edb, proficiency, macc].every(Number.isFinite) ? '未读取到完整魔法面板数据' : '请检查怪物或参数输入';
+            return;
+        }
+        error.textContent = '';
+        const result = calculateSpellDamage({
+            monster, level, element, mdb, edb, proficiency, macc, cr, dd, tower,
+            imperil: input('imperil').checked,
+            critMultiplier,
+        });
+        const damage = value => Math.round(value).toLocaleString('en-US');
+        output('element', element.label + ' / ' + result.pf.toFixed(3));
+        output('mitigation', (result.magicMitigation * (input('imperil').checked ? 0.5 : 1) * 100).toFixed(1) +
+            '% / ' + result.remainingMitigation.toFixed(1) + '%');
+        output('resist-value', result.resistValue.toFixed(1));
+        output('resist', result.ratio.toFixed(3) + ' / ' + (result.resistChance * 100).toFixed(1) + '%');
+        output('health', damage(result.monsterHealth));
+        output('t3-raw', damage(result.t3));
+        output('t3', damage(result.t3Expected));
+        output('t2-raw', damage(result.t2));
+        output('t2', damage(result.t2Expected));
+        positionDamagePanel();
+    }
+
+    function findHighestElementAffinity() {
         let bestName = '';
         let bestValue = -Infinity;
-        for (const [enName, zhName] of spellRows) {
-            let value = null;
-            const enRow = findEnglishPanelRow('spell', enName);
-            if (enRow) {
-                const liveItem = findLiveRowByEnglishRow('spell', enRow);
-                value = liveItem ? readLiveRowIncrement(liveItem).value : enRow.value;
-            }
-            if (value === null || !Number.isFinite(value)) {
-                value = getLivePanelValue(['Spell Damage Bonus', '法术伤害加成'], [enName, zhName]);
-            }
+        for (const enName of Object.keys(DAMAGE_ELEMENTS)) {
+            const value = getElementAffinity(enName);
             if (value === null || !Number.isFinite(value)) continue;
             if (value > bestValue) {
                 bestValue = value;
@@ -2928,121 +3275,42 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         return raw + charmDelta;
     }
 
-    async function refreshMaccCheckPanel() {
+    async function refreshDamagePanel() {
         if (!isEquipmentPage()) return;
         if (!isMageBuild()) {
-            document.getElementById('hv-macc-panel')?.remove();
+            document.getElementById('hv-damage-panel')?.remove();
+            document.getElementById('hv-mage-panel')?.remove();
             return;
         }
-        if (maccCheckRefreshRequest) return maccCheckRefreshRequest;
-        const generation = maccCheckGeneration;
-
-        const panel = ensureMaccCheckPanel();
-        if (panel) renderMaccCheckPanel();
+        const panel = ensureDamagePanel();
+        if (panel) {
+            renderMageStatsPanel();
+            renderDamagePanel();
+        }
+        if (damagePanelRefreshRequest) return damagePanelRefreshRequest;
+        const generation = damagePanelGeneration;
 
         const request = (async () => {
-            await fetchCharBaseProf(false);
-            const panel = ensureMaccCheckPanel();
+            await fetchCharBaseProf();
+            const panel = ensureDamagePanel();
             if (!panel) return;
-            renderMaccCheckPanel();
+            renderMageStatsPanel();
+            renderDamagePanel();
             if (!gEnglishStatsPanel) {
                 await ensureEnglishStatsPanel();
-                if (generation === maccCheckGeneration && isEquipmentPage() && document.getElementById('hv-macc-panel')?.isConnected) {
-                    renderMaccCheckPanel();
+                if (generation === damagePanelGeneration && isEquipmentPage() && panel.isConnected) {
+                    renderMageStatsPanel();
+                    renderDamagePanel();
                 }
             }
         })();
-        maccCheckRefreshRequest = request;
+        damagePanelRefreshRequest = request;
         try {
             await request;
         } finally {
-            if (maccCheckRefreshRequest === request) maccCheckRefreshRequest = null;
+            if (damagePanelRefreshRequest === request) damagePanelRefreshRequest = null;
         }
     }
-
-    function applyProfPanelIncrement(simEff) {
-        const element = findHighestElementAffinity();
-        let liveItem = null;
-        if (element) {
-            let profName = 'Elemental';
-            if (/holy/i.test(element.name)) profName = 'Divine';
-            else if (/dark|forbidden/i.test(element.name)) profName = 'Forbidden';
-            const enRow = findEnglishPanelRow('proficiency', profName);
-            if (enRow) liveItem = findLiveRowByEnglishRow('proficiency', enRow);
-        }
-        if (!liveItem) {
-            clearPanelIncrementSources('prof');
-            renderPanelIncrements();
-            return;
-        }
-        const baseEff = effectiveProf(gCharBaseProf);
-        const delta = Number.isFinite(simEff) && Number.isFinite(baseEff) ? simEff - baseEff : 0;
-        if (Math.abs(delta) >= 0.00005) setPanelIncrementSource(liveItem, 'prof', delta);
-        else clearPanelIncrementSources('prof');
-        renderPanelIncrements();
-    }
-
-    function renderMaccCheckPanel() {
-        const panel = document.getElementById('hv-macc-panel');
-        if (!panel || !panel.isConnected) return;
-        const level = getPlayerLevel();
-        const cr = getCurrentCounterResist();
-        const macc = getMagicAccuracyWithIncrements();
-        const crCell = panel.querySelector('[data-role="cr"]');
-        const rfCell = panel.querySelector('[data-role="rf"]');
-        const maccCell = panel.querySelector('[data-role="macc"]');
-        const requiredCell = panel.querySelector('[data-role="required"]');
-        const qualifiedCell = panel.querySelector('[data-role="qualified"]');
-        if (!crCell || !rfCell || !maccCell || !requiredCell || !qualifiedCell) return;
-
-        if (Number.isFinite(cr)) crCell.textContent = cr.toFixed(2) + '%';
-        else crCell.textContent = '--';
-
-        if (Number.isFinite(macc)) maccCell.textContent = macc.toFixed(2);
-        else maccCell.textContent = '--';
-
-        const profInput = document.getElementById('hv-macc-prof-input');
-        const targetProf = Number.parseFloat(profInput && profInput.value || '');
-        const cappedProf = Number.isFinite(targetProf) ? Math.min(Math.max(targetProf, 0), 600) : NaN;
-        const simValid = Number.isFinite(cappedProf) && cappedProf > 0 && level > 0;
-        const simEff = simValid ? effectiveProf(cappedProf) : null;
-        const realEff = getMagicProficiencyWithIncrements();
-        const baseEff = effectiveProf(gCharBaseProf);
-        const delta = simEff !== null ? simEff - baseEff : 0;
-        const eff = Number.isFinite(realEff) ? realEff + delta : null;
-        const rf = Number.isFinite(eff) && eff > 0 && level > 0
-            ? Math.min(1, (eff - level) / level)
-            : null;
-        if (rf !== null) rfCell.textContent = rf.toFixed(4);
-        else rfCell.textContent = '--';
-
-        applyProfPanelIncrement(simEff);
-
-        if (profInput) {
-            profInput.placeholder = Number.isFinite(gCharBaseProf)
-                ? gCharBaseProf.toFixed(3)
-                : '输入基础熟练度';
-            profInput.title = simEff !== null
-                ? '模拟有效熟练度 ' + simEff.toFixed(1)
-                : '有效熟练度 ' + (Number.isFinite(realEff) ? realEff.toFixed(1) : '--');
-        }
-
-        if (rf !== null && Number.isFinite(cr) && Number.isFinite(macc)) {
-            const crDecimal = cr / 100;
-            const required = level * 2.5 * (1 - (crDecimal + rf / 2)) * 3 - 100;
-            requiredCell.textContent = required.toFixed(2);
-            const qualified = macc >= required;
-            qualifiedCell.textContent = qualified ? '你过关!' : '纯度太低了';
-            qualifiedCell.style.color = qualified ? '#006400' : '#b00020';
-            qualifiedCell.style.fontWeight = 'bold';
-        } else {
-            requiredCell.textContent = '--';
-            qualifiedCell.textContent = '--';
-            qualifiedCell.style.color = '';
-            qualifiedCell.style.fontWeight = '';
-        }
-    }
-
 
     let gBasePrimaryStats = null;
     let gBaseStatsFetched = false;
@@ -3782,8 +4050,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         cb.addEventListener('change', () => {
             gTalent[key] = cb.checked;
             saveTalentSettings();
-            renderMaccCheckPanel();
-            scheduleMaccCheckRefresh();
+            scheduleDamagePanelRefresh();
         });
         lab.appendChild(cb);
         talentRow.appendChild(lab);
@@ -5474,38 +5741,39 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     }
   }
 
-  function removeMaccCheckPanel() {
-    maccCheckGeneration++;
-    maccCheckRefreshRequest = null;
+  function removeDamagePanel() {
+    damagePanelGeneration++;
+    damagePanelRefreshRequest = null;
     document.getElementById('hv-macc-panel')?.remove();
-    if (maccCheckRefreshTimer !== null) {
-      window.clearTimeout(maccCheckRefreshTimer);
-      maccCheckRefreshTimer = null;
+    document.getElementById('hv-damage-panel')?.remove();
+    document.getElementById('hv-mage-panel')?.remove();
+    if (damagePanelRefreshTimer !== null) {
+      window.clearTimeout(damagePanelRefreshTimer);
+      damagePanelRefreshTimer = null;
     }
-    if (maccCheckObserver) {
-      maccCheckObserver.disconnect();
-      maccCheckObserver = null;
+    if (damagePanelObserver) {
+      damagePanelObserver.disconnect();
+      damagePanelObserver = null;
     }
-    if (maccCheckStatsObserver) {
-      maccCheckStatsObserver.disconnect();
-      maccCheckStatsObserver = null;
-      maccCheckStatsObserverTarget = null;
+    if (damagePanelStatsObserver) {
+      damagePanelStatsObserver.disconnect();
+      damagePanelStatsObserver = null;
+      damagePanelStatsObserverTarget = null;
     }
-    if (maccCheckMageResizeObserver) {
-      maccCheckMageResizeObserver.disconnect();
-      maccCheckMageResizeObserver = null;
-      maccCheckMageResizeTarget = null;
+    if (damagePanelMageResizeObserver) {
+      damagePanelMageResizeObserver.disconnect();
+      damagePanelMageResizeObserver = null;
+      damagePanelMageResizeTarget = null;
     }
-    if (maccCheckResizeHandler) {
-      window.removeEventListener('resize', maccCheckResizeHandler);
-      maccCheckResizeHandler = null;
+    if (damagePanelResizeHandler) {
+      window.removeEventListener('resize', damagePanelResizeHandler);
+      window.removeEventListener('scroll', damagePanelResizeHandler);
+      damagePanelResizeHandler = null;
     }
-    if (maccCheckDomChangeHandler) {
-      document.removeEventListener('change', maccCheckDomChangeHandler, true);
-      maccCheckDomChangeHandler = null;
+    if (damagePanelDomChangeHandler) {
+      document.removeEventListener('change', damagePanelDomChangeHandler, true);
+      damagePanelDomChangeHandler = null;
     }
-    maccCheckResizeBound = false;
-    maccCheckDomBound = false;
     invalidateStatsPanelIndex();
   }
 
@@ -5513,7 +5781,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     document.getElementById('hv-upgrade-btn')?.remove();
     document.getElementById('hv-easter-egg')?.remove();
     removeUpgradePanel();
-    removeMaccCheckPanel();
+    removeDamagePanel();
     stopHvutRowSync();
     invalidateEquipmentDataCache();
     lastHoveredEquipmentId = null;
@@ -6262,7 +6530,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         updateCharmEffectDisplay(charmNet);
         updateWeaponClassDisplays();
       }
-      scheduleMaccCheckRefresh();
+      scheduleDamagePanelRefresh();
     }
 
     function getCounterResistPanelDelta() {
@@ -6348,8 +6616,11 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     '<玩家>看着自己的内脏变成了“外脏”',
     '哈哈！伊利哇啦',
     '致：将所有的Credits和Hath通过mm发送给情绪',
-    '关注异世界情绪喵，关注异世界情绪谢谢喵',
     '关注花谱喵，关注花谱谢谢喵',
+    '关注异世界情绪喵，关注异世界情绪谢谢喵',
+    '关注春猿火喵，关注春猿火谢谢喵',
+    '关注理芽喵，关注理芽谢谢喵',
+    '关注幸祜喵，关注幸祜谢谢喵',
     '⑨月⑨日忆擅冻兄弟',
     'バカバカバカバカバカバカバカバカ',
     'SAY YA~SAY YA~SAY YA~',
@@ -6369,6 +6640,10 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     'Blessings for your birthday~ Blessings for your everyday~',
     '君に伝えたいことが、君に届けたいことが',
     '🍋🍈🍪🍋🍈🍪🍋🍈🍋🍈🍪🍋🍈🍪🍪',
+    '去听Guiano的专辑「花鳥風月」',
+    'ヰ世界の宝石譚',
+    'ARCADIA',
+    'シリウスの心臓',
     'いますぐ輪廻',
     'バカみたいに',
     '月が綺麗ねと言われたい！',
@@ -6447,7 +6722,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     };
     document.addEventListener('mouseover', equipmentMouseoverHandler, true);
     ensureEnglishStatsPanel();
-    refreshMaccCheckPanel();
+    refreshDamagePanel();
     addUpgradeButton();
     addEasterEgg();
     startHvutRowSync();
@@ -6463,7 +6738,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         if (initialized) {
           addUpgradeButton();
           startHvutRowSync();
-          refreshMaccCheckPanel();
+          refreshDamagePanel();
           addEasterEgg();
         } else {
           init();
