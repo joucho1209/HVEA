@@ -2,7 +2,7 @@
 // @name         HV 装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.3.0
+// @version      1.3.1
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -2586,7 +2586,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
             '#hv-mage-panel td { padding:1px 0; }',
             '#hv-mage-panel td:first-child { text-align:right; padding-right:3px; color:var(--color-font-highlight, #c00); }',
             '#hv-mage-panel td:last-child { text-align:left; }',
-            '#hv-damage-panel { position:absolute; bottom:100px; display:grid; grid-template-columns:190px minmax(0, 1fr); column-gap:12px; border:2px solid var(--color-border-default, #5C0D11); border-radius:9px; padding:6px 10px; background:var(--color-bg-default, #EDEBDF); color:var(--color-font-default, #5C0D11); width:min(410px, calc(100vw - 16px)); max-height:calc(100vh - 16px); overflow-y:auto; box-sizing:border-box; font-size:9pt; line-height:19px; z-index:1001; }',
+            '#hv-damage-panel { position:absolute; bottom:100px; display:grid; grid-template-columns:190px minmax(0, 1fr); column-gap:12px; border:2px solid var(--color-border-default, #5C0D11); border-radius:9px; padding:6px 10px; background:var(--color-bg-default, #EDEBDF); color:var(--color-font-default, #5C0D11); width:min(410px, calc(100vw - 16px)); max-height:calc(100vh - 16px); overflow-y:auto; box-sizing:border-box; font-size:9pt; line-height:19px; z-index:4; }',
             '#hv-damage-panel p { grid-column:1 / -1; margin:0 0 4px; font-size:10pt; font-weight:bold; }',
             '#hv-damage-panel label { display:flex; justify-content:space-between; align-items:center; gap:6px; min-height:24px; white-space:nowrap; }',
             '#hv-damage-panel select, #hv-damage-panel input[type=number] { width:94px; box-sizing:border-box; font:inherit; color:inherit; background:var(--color-bg-default, #EDEBDF); border:1px solid var(--color-border-default, #5C0D11); border-radius:3px; }',
@@ -2659,7 +2659,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         panel.querySelector('[data-input="dd"]').value =
             DAMAGE_DD_BONUSES.includes(dd) ? String(dd) : '15';
         panel.querySelector('[data-input="tower"]').value =
-            Number.isFinite(tower) && tower >= 0 && tower <= 1000 ? String(tower) : '0';
+            Number.isFinite(tower) ? String(Math.max(0, Math.min(100, tower))) : '0';
     }
 
     function bindDamageSettingsCache(panel) {
@@ -2667,13 +2667,22 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         panel.dataset.damageSettingsBound = '1';
         const save = event => {
             if (!event.target.matches('[data-input="dd"], [data-input="tower"]')) return;
+            const towerField = panel.querySelector('[data-input="tower"]');
+            if (event.target === towerField) {
+                const value = Number(towerField.value);
+                if (towerField.value === '' && event.type === 'change') towerField.value = '0';
+                else if (towerField.value !== '' && Number.isFinite(value)) {
+                    if (value > 100) towerField.value = '100';
+                    else if (value < 0) towerField.value = '0';
+                }
+            }
             const saved = HVEA_SHARED.storage.readJson(DAMAGE_SETTINGS_KEY, {});
             const settings = saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
             const dd = Number(panel.querySelector('[data-input="dd"]').value);
-            const towerInput = panel.querySelector('[data-input="tower"]').value.trim();
+            const towerInput = towerField.value.trim();
             const tower = Number(towerInput);
             if (DAMAGE_DD_BONUSES.includes(dd)) settings.dd = dd;
-            if (towerInput && Number.isFinite(tower) && tower >= 0 && tower <= 1000) settings.tower = tower;
+            if (towerInput && Number.isFinite(tower) && tower >= 0 && tower <= 100) settings.tower = tower;
             HVEA_SHARED.storage.writeJson(DAMAGE_SETTINGS_KEY, settings);
         };
         panel.addEventListener('input', save);
@@ -2683,6 +2692,11 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     function ensureDamagePanelNode(stats) {
         let panel = document.getElementById('hv-damage-panel');
         if (panel) {
+            const towerField = panel.querySelector('[data-input="tower"]');
+            if (towerField) {
+                towerField.max = '100';
+                if (Number(towerField.value) > 100) towerField.value = '100';
+            }
             if (!panel.querySelector('.hv-damage-settings')) {
                 const settings = document.createElement('div');
                 settings.className = 'hv-damage-settings';
@@ -2749,7 +2763,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
                 '<option value="' + bonus + '"' + (level === 2 ? ' selected' : '') + '>DD' + level + ' (' + bonus + '%)</option>'
             ).join('') +
             '</select></label>' +
-            '<label>塔楼层数<input data-input="tower" type="number" min="0" max="1000" step="1" value="0"></label>' +
+            '<label>塔楼层数<input data-input="tower" type="number" min="0" max="100" step="1" value="0"></label>' +
             '<div class="hv-damage-toggles"><label>IMP<input data-input="imperil" type="checkbox" checked></label>' +
             '<label>暴击<input data-input="crit" type="checkbox"></label></div>' +
             '</div><div class="hv-damage-results">' +
@@ -3026,7 +3040,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         const valid = monster && element && Number.isInteger(level) && level > 0 &&
             [mdb, edb, proficiency, macc, cr, dd, tower, critMultiplier].every(Number.isFinite) &&
             critMultiplier > 0 &&
-            macc > -100 && dd >= 0 && tower >= 0;
+            macc > -100 && dd >= 0 && tower >= 0 && tower <= 100;
         const error = panel.querySelector('[data-role="damage-error"]');
         if (!valid) {
             for (const role of ['element', 'mitigation', 'resist-value', 'resist', 'health', 't3-raw', 't3', 't2-raw', 't2']) output(role, '--');
