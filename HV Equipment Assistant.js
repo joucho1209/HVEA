@@ -2,7 +2,7 @@
 // @name         HV 装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.3.1
+// @version      1.3.2
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -2548,7 +2548,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         const scaledEndurance = scaled(primary);
         const monsterHealth = (100 + 500 * 10 + scaledEndurance * 5) * 2 *
             (1 + DAMAGE_CHAOS_LEVEL * 0.05) * Math.max(1, (level - 100) * 0.01);
-        const magicMitigation = 1 - 900 / (900 + scaledEndurance + scaled(secondary) / 2) * (1 - DAMAGE_CHAOS_LEVEL * 0.01);
+        const magicMitigation = 1 - 1000 / (1000 + scaledEndurance + scaled(secondary) / 2) * (1 - DAMAGE_CHAOS_LEVEL * 0.01);
         const elementMitigation = monster.resistance[element.index] + 50 * monster.growth[element.index];
         const remainingMitigation = imperil
             ? Math.max(0, elementMitigation - (element.index < 4 ? 40 : 25) - profReduction)
@@ -6625,6 +6625,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     '一切都好可怕！！！游戏变困难了！',
     '爱丽丝爱丽丝爱丽・ｿ關ｽ蜈･逋ｽ蜈皮噪豢樒ｩｴ荵倶ｸｭ',
     '不知道动了谁的蛋糕、蛋挞、慕斯、驴打滚、桂花糖芋苗、蝴蝶酥、双皮奶、椰汁西米糕',
+    '忒乐忒乐邦邦娜巴拉尼，卡特克贝贝呗，普啾噔得了噔得了嘛哈嘛哈，尼哈啦尼哈啦喵，忒嘣了忒嘣了卡拉卡拉灵，夏喀勒哦哦哦哦，啊喔汪汪喵喵喵喵哦💥💥',
     '一股强劲的音乐响起，好像是一首很老的歌...',
     '你们听说过，侠客行的故事吗？元和二年...',
     '<玩家>看着自己的内脏变成了“外脏”',
