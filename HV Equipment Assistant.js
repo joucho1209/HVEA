@@ -2,7 +2,7 @@
 // @name         HV 装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.3.2
+// @version      1.3.3
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -2526,7 +2526,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     ];
 
     function damageResistanceChance(ratio) {
-        if (ratio <= 0) return 0.01;
+        if (ratio <= 1 / 3) return 0.01;
         const chance = ratio >= 2
             ? 0.5 + Math.log(ratio - 1) * 0.1004
             : ratio >= 1 ? ratio * 0.25 : 0.37 - 0.12 / ratio;
@@ -2555,12 +2555,14 @@ HVEA_MATERIALS.inventoryMaterialNames = [
             : elementMitigation - profReduction;
         const received = (1 - magicMitigation * (imperil ? 0.5 : 1)) * (1 - remainingMitigation / 100);
         const resistValue = level * 1.25 * (1 + DAMAGE_CHAOS_LEVEL * 0.05);
-        const ratio = Math.max(0, resistValue * (1 - cr / 100 - pf / 2) / (macc + 100));
+        const effectiveResist = Math.max(0, resistValue * (1 - cr / 100 - pf / 2));
+        const requiredMacc = Math.max(0, effectiveResist * 3 - 100);
+        const ratio = effectiveResist / (macc + 100);
         const resistChance = damageResistanceChance(ratio);
         const resistMultiplier = damageResistanceMultiplier(resistChance);
         const base = mdb * (1 + edb / 100) * (1 + dd / 100) * (1 + tower * 0.001) * 1.25 * critMultiplier;
         return {
-            pf, monsterHealth, resistValue, ratio, resistChance, magicMitigation, elementMitigation, remainingMitigation,
+            pf, monsterHealth, resistValue, requiredMacc, ratio, resistChance, magicMitigation, elementMitigation, remainingMitigation,
             t3: base * 7.5 * received, t2: base * 5.85 * received,
             t3Expected: base * 7.5 * received * resistMultiplier,
             t2Expected: base * 5.85 * received * resistMultiplier,
@@ -2586,6 +2588,9 @@ HVEA_MATERIALS.inventoryMaterialNames = [
             '#hv-mage-panel td { padding:1px 0; }',
             '#hv-mage-panel td:first-child { text-align:right; padding-right:3px; color:var(--color-font-highlight, #c00); }',
             '#hv-mage-panel td:last-child { text-align:left; }',
+            '#hv-mage-panel [data-role="mage-resist-verdict"] { text-align:center; font-weight:bold; padding-top:5px; }',
+            '#hv-mage-panel [data-role="mage-resist-verdict"][data-pass="true"] { color:#008000; }',
+            '#hv-mage-panel [data-role="mage-resist-verdict"][data-pass="false"] { color:#c00; }',
             '#hv-damage-panel { position:absolute; bottom:100px; display:grid; grid-template-columns:190px minmax(0, 1fr); column-gap:12px; border:2px solid var(--color-border-default, #5C0D11); border-radius:9px; padding:6px 10px; background:var(--color-bg-default, #EDEBDF); color:var(--color-font-default, #5C0D11); width:min(410px, calc(100vw - 16px)); max-height:calc(100vh - 16px); overflow-y:auto; box-sizing:border-box; font-size:9pt; line-height:19px; z-index:4; }',
             '#hv-damage-panel p { grid-column:1 / -1; margin:0 0 4px; font-size:10pt; font-weight:bold; }',
             '#hv-damage-panel label { display:flex; justify-content:space-between; align-items:center; gap:6px; min-height:24px; white-space:nowrap; }',
@@ -2804,12 +2809,21 @@ HVEA_MATERIALS.inventoryMaterialNames = [
             stats.appendChild(panel);
         }
         const tbody = panel.querySelector('tbody');
-        ['命中率', 'T2T3暴击率', 'T1暴击率'].forEach((label, index) => {
-            if (tbody.rows.length > 6 + index) return;
-            const row = tbody.insertRow();
-            row.insertCell().textContent = '--';
-            row.insertCell().textContent = label;
-        });
+        while (tbody.rows.length > 7) tbody.deleteRow(-1);
+        const requiredRow = tbody.rows[6] || tbody.insertRow();
+        if (!requiredRow.cells.length) {
+            requiredRow.insertCell().textContent = '--';
+            requiredRow.insertCell();
+        }
+        requiredRow.cells[0].dataset.role = 'mage-required-macc';
+        if (requiredRow.cells[1].textContent !== '穿抗所需macc') requiredRow.cells[1].textContent = '穿抗所需macc';
+        if (!panel.querySelector('[data-role="mage-resist-verdict"]')) {
+            const verdict = document.createElement('div');
+            verdict.dataset.role = 'mage-resist-verdict';
+            verdict.textContent = '--';
+            verdict.setAttribute('role', 'status');
+            panel.appendChild(verdict);
+        }
         return panel;
     }
 
@@ -2963,28 +2977,9 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         return getLivePanelValue(['Effective Proficiency', '熟练度'], [name, chineseName]);
     }
 
-    function renderMageHitRates() {
-        const rows = document.querySelectorAll('#hv-mage-panel table tr');
-        if (rows.length < 9) return;
-        const levelText = document.querySelector('#hv-damage-panel [data-input="level"]')?.value.trim();
-        const monsterLevel = levelText ? Number(levelText) : NaN;
-        const macc = getMagicAccuracyWithIncrements();
-        let values = ['--', '--', '--'];
-        if (Number.isInteger(monsterLevel) && monsterLevel > 0 && Number.isFinite(macc)) {
-            const p = Math.max(0, Math.min(1, 0.7 + (macc + 100) / (monsterLevel * 2 + 100) * 0.1));
-            const grazeChance = 2 * p * (1 - p);
-            const critChance = (0.5 - grazeChance / 2) * 1.25;
-            values = [p, p * critChance, p * p * critChance].map(value => (value * 100).toFixed(2) + '%');
-        }
-        values.forEach((value, index) => {
-            if (rows[6 + index].cells[0].textContent !== value) rows[6 + index].cells[0].textContent = value;
-        });
-    }
-
     function renderMageStatsPanel() {
         const rows = document.querySelectorAll('#hv-mage-panel table tr');
-        if (rows.length < 9) return;
-        renderMageHitRates();
+        if (rows.length < 6) return;
         const element = findHighestElementAffinity();
         const level = getPlayerLevel();
         const mdb = getMagicDamageWithIncrements();
@@ -3018,10 +3013,23 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         if (crLabel.textContent !== nextCrLabel) crLabel.textContent = nextCrLabel;
     }
 
+    function renderMagePenetration(result) {
+        const required = document.querySelector('#hv-mage-panel [data-role="mage-required-macc"]');
+        const verdict = document.querySelector('#hv-mage-panel [data-role="mage-resist-verdict"]');
+        if (!required || !verdict) return;
+        const valid = result && Number.isFinite(result.requiredMacc) && Number.isFinite(result.resistChance);
+        const passed = valid && result.resistChance <= 0.01;
+        const requiredText = valid ? (Math.ceil(result.requiredMacc * 100) / 100).toFixed(2) : '--';
+        const verdictText = valid ? (passed ? '你过关!' : '纯度太低了') : '--';
+        if (required.textContent !== requiredText) required.textContent = requiredText;
+        if (verdict.textContent !== verdictText) verdict.textContent = verdictText;
+        if (valid) verdict.dataset.pass = String(passed);
+        else delete verdict.dataset.pass;
+    }
+
     function renderDamagePanel() {
         const panel = document.getElementById('hv-damage-panel');
         if (!panel || !panel.isConnected) return;
-        renderMageHitRates();
         const input = role => panel.querySelector('[data-input="' + role + '"]');
         const output = (role, value) => { panel.querySelector('[data-role="damage-' + role + '"]').textContent = value; };
         const num = role => input(role).value.trim() === '' ? NaN : Number(input(role).value);
@@ -3043,6 +3051,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
             macc > -100 && dd >= 0 && tower >= 0 && tower <= 100;
         const error = panel.querySelector('[data-role="damage-error"]');
         if (!valid) {
+            renderMagePenetration(null);
             for (const role of ['element', 'mitigation', 'resist-value', 'resist', 'health', 't3-raw', 't3', 't2-raw', 't2']) output(role, '--');
             error.textContent = !element ? '未读取到主元素' :
                 input('crit').checked && !(critMultiplier > 0) ? '未读取到魔法暴击伤害倍率' :
@@ -3055,6 +3064,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
             imperil: input('imperil').checked,
             critMultiplier,
         });
+        renderMagePenetration(result);
         const damage = value => Math.round(value).toLocaleString('en-US');
         output('element', element.label + ' / ' + result.pf.toFixed(3));
         output('mitigation', (result.magicMitigation * (input('imperil').checked ? 0.5 : 1) * 100).toFixed(1) +
@@ -7214,6 +7224,46 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       background: #e8dfd0;
     }
     #hv-minsteps-import-equips { border-radius: 2px !important; }
+    #hv-fusion-custom-overlay {
+      position: fixed;
+      top: 80px;
+      left: 14px;
+      z-index: 10002;
+      display: flex;
+      flex-direction: column;
+      width: min(260px, calc(100vw - 28px));
+      max-height: 85vh;
+      padding: 0 10px 10px;
+      box-sizing: border-box;
+      color: #222;
+      background: #f5f0e8;
+      border: 2px solid #5c0d11;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,.3);
+      font: 10pt Verdana, sans-serif;
+    }
+    #hv-fusion-custom-overlay form { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+    .hv-ms-custom-attrs {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 6px;
+      overflow-x: hidden;
+      overflow-y: auto;
+      min-width: 0;
+      min-height: 0;
+    }
+    .hv-ms-custom-attrs label {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 64px;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      text-align: center;
+    }
+    .hv-ms-custom-attrs label span { min-width: 0; text-align: center; white-space: normal; overflow-wrap: anywhere; }
+    .hv-ms-custom-attrs input { width: 100%; min-width: 0; box-sizing: border-box; font: inherit; }
+    .hv-ms-custom-error { margin-top: 6px; color: #c00; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+    .hv-ms-custom-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px; }
     .hv-ms-plan {
       max-height: 170px;
       margin: 6px 0;
@@ -7440,6 +7490,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
               <button type="button" data-import-source="inventory" role="menuitem">库存装备</button>
               <button type="button" data-import-source="other" role="menuitem">非库存装备</button>
               <button type="button" data-import-source="peerless" role="menuitem">P素材</button>
+              <button type="button" data-import-source="custom" role="menuitem">自定义装备</button>
             </div>
           </div>
           <button id="hv-minsteps-reset-calculation" class="hvea-secondary-button">重置计算</button>
@@ -8883,6 +8934,115 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     setStatus(`已添加 Peerless 虚拟素材：${donor.name}。`, "ok");
   }
 
+  function openCustomDonorPanel() {
+    if (!state.mainEquip || !state.attrKeys.length) {
+      setStatus("请先导入主装备。", "warn");
+      return;
+    }
+    if (state.busy) {
+      setStatus("搜索进行中，暂时不能添加素材。", "warn");
+      return;
+    }
+
+    document.getElementById("hv-fusion-custom-overlay")?.remove();
+    const mainEquip = state.baseMainEquip || state.mainEquip;
+    const attrKeys = [...state.attrKeys];
+    const overlay = document.createElement("section");
+    overlay.id = "hv-fusion-custom-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-labelledby", "hv-fusion-custom-title");
+    overlay.innerHTML = `
+      <div class="hv-ms-header">
+        <h2 id="hv-fusion-custom-title">自定义装备</h2>
+        <button type="button" class="hv-ms-close" data-close title="关闭" aria-label="关闭">×</button>
+      </div>
+      <form novalidate>
+        <div class="hv-ms-custom-attrs"></div>
+        <div class="hv-ms-custom-error" role="status" aria-live="polite"></div>
+        <div class="hv-ms-custom-actions">
+          <button type="button" class="hvea-secondary-button" data-close>取消</button>
+          <button type="submit" class="hvea-secondary-button">添加素材</button>
+        </div>
+      </form>`;
+    const fields = new Map();
+    const attrsContainer = overlay.querySelector(".hv-ms-custom-attrs");
+    for (const key of attrKeys) {
+      const label = document.createElement("label");
+      const name = document.createElement("span");
+      name.textContent = translateEquipTipAttribute(key);
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = "170";
+      input.max = "200";
+      input.step = "1";
+      input.required = true;
+      input.value = "170";
+      const clamp = (event) => {
+        if (input.value === "") return;
+        const value = Number(input.value);
+        if (!Number.isFinite(value)) return;
+        if (event.type === "input") {
+          if (value > 200) input.value = "200";
+        } else {
+          input.value = String(Math.max(170, Math.min(200, Math.round(value))));
+        }
+      };
+      input.addEventListener("input", clamp);
+      input.addEventListener("change", clamp);
+      fields.set(key, input);
+      label.append(name, input);
+      attrsContainer.appendChild(label);
+    }
+    const close = () => overlay.remove();
+    overlay.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", close));
+    overlay.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        close();
+      }
+    });
+    overlay.querySelector("form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const error = overlay.querySelector(".hv-ms-custom-error");
+      if (!state.mainEquip || (state.baseMainEquip || state.mainEquip) !== mainEquip) {
+        error.textContent = "主装备已变化，请重新打开自定义装备。";
+        return;
+      }
+      if (state.busy) {
+        error.textContent = "搜索进行中，暂时不能添加素材。";
+        return;
+      }
+      const attrs = {};
+      for (const [key, input] of fields) {
+        const value = Number(input.value);
+        if (input.value === "" || !Number.isInteger(value) || value < 170 || value > 200) {
+          error.textContent = `${translateEquipTipAttribute(key)}必须为 170～200 的整数。`;
+          input.focus();
+          return;
+        }
+        attrs[key] = value;
+      }
+      let number = 1;
+      while (state.allEquips.some((equip) => equip.name === `自定义素材${String(number).padStart(2, "0")}`)) number += 1;
+      let id = -2000000 - number;
+      while (state.allEquips.some((equip) => equip.id === id)) id -= 1;
+      const donor = new Equipment(id, `自定义素材${String(number).padStart(2, "0")}`, attrs, "virtual", mainEquip.eqtType || "");
+      donor.quality = "Legendary";
+      state.allEquips.push(donor);
+      resetProgress();
+      state.activeTab = "other";
+      refreshUI();
+      saveState();
+      close();
+      setStatus(`已添加自定义装备：${donor.name}。`, "ok");
+    });
+    document.body.appendChild(overlay);
+    makeDraggable(overlay, overlay.querySelector(".hv-ms-header"));
+    overlay.style.left = `${Math.max(14, (window.innerWidth - overlay.offsetWidth) / 2)}px`;
+    overlay.style.top = `${Math.max(14, Math.min(100, (window.innerHeight - overlay.offsetHeight) / 2))}px`;
+    fields.values().next().value?.focus();
+  }
+
   function countExistingDonorDuplicates(equips) {
     const importedIds = new Set(
       state.allEquips
@@ -8941,6 +9101,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     }
 
     const nextMainEquip = equips[0];
+    document.getElementById("hv-fusion-custom-overlay")?.remove();
     const previousMainEquip = state.baseMainEquip || state.mainEquip;
     const previousSignature = previousMainEquip ? getManualFusionSignature(previousMainEquip) : "";
     const nextSignature = getManualFusionSignature(nextMainEquip);
@@ -10017,6 +10178,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
 
   function resetData() {
     if (!window.confirm("确定要重置所有融合数据吗？主装备、素材、融合记录和日志将被清除。")) return;
+    document.getElementById("hv-fusion-custom-overlay")?.remove();
     state.pauseRequested = false;
     state.allEquips = [];
     state.mainEquip = null;
@@ -10503,6 +10665,10 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       closeImportMenu();
       if (button.dataset.importSource === "peerless") {
         addVirtualPeerlessDonor();
+        return;
+      }
+      if (button.dataset.importSource === "custom") {
+        openCustomDonorPanel();
         return;
       }
       const source = button.dataset.importSource === "other" ? "other" : "inventory";
