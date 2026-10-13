@@ -2,7 +2,7 @@
 // @name         HV 装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.3.3
+// @version      1.3.4
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -7496,7 +7496,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
           <button id="hv-minsteps-reset-calculation" class="hvea-secondary-button">重置计算</button>
           <button id="hv-minsteps-reset" class="hvea-secondary-button">重置数据</button>
           <label>搜索时间
-            <input id="hv-minsteps-time" type="number" min="1" max="300" step="1" value="${SEARCH_DEFAULT_SECONDS}">
+            <input id="hv-minsteps-time" type="number" min="1" step="1" value="${SEARCH_DEFAULT_SECONDS}">
             秒
           </label>
           <button id="hv-minsteps-pause" class="hvea-secondary-button" disabled>暂停</button>
@@ -7910,8 +7910,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     return RARE_MATERIAL_KEYS.some((key) => nameText.includes(key));
   }
 
-  // 每项未高于当前主装备的 Base 消耗 1 核心；主装备该项满 200 时不消耗。
-  // 稀有材质祭品固定消耗 5 核心，不再按逐项结果累加。
+  // 未满 200 且素材 Base 不高于主装备的属性，普通材质每项消耗 1 核心，稀有材质每项消耗 5 核心。
   function calcCoreCost(mainEquip, fuseEquip) {
     if (!mainEquip || !fuseEquip) return 0;
     const mainAttrs = mainEquip.attrs || {};
@@ -7919,13 +7918,14 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     const attrKeys = state.attrKeys.length
       ? state.attrKeys
       : Object.keys(mainAttrs);
+    const coresPerAttribute = isRareMaterialName(fuseEquip.name) ? 5 : 1;
     let cores = 0;
     for (const key of attrKeys) {
       const mainBase = Number(mainAttrs[key] || 0);
       const fuseBase = Number(fuseAttrs[key] || 0);
-      if (mainBase < 200 && fuseBase <= mainBase) cores += 1;
+      if (mainBase < 200 && fuseBase <= mainBase) cores += coresPerAttribute;
     }
-    return isRareMaterialName(fuseEquip.name) ? 5 : cores;
+    return cores;
   }
 
   function formatCostCompact(credits) {
@@ -9557,14 +9557,14 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         .map((key, index) => ({
           key,
           index,
-          value: Number(mainAttrsInput[key] || 0) + actualAdds[key],
+          value: Number(mainAttrsInput[key] || 0),
         }))
         .sort((a, b) => a.value - b.value || a.index - b.index);
 
       let assigned = 0;
       for (const item of sortedKeys) {
         if (overflowPoints <= 0) break;
-        if (item.value < 200) {
+        if (item.value + actualAdds[item.key] < 200) {
           actualAdds[item.key] += 1;
           overflowPoints -= 1;
           assigned += 1;
@@ -10052,9 +10052,9 @@ HVEA_MATERIALS.inventoryMaterialNames = [
 
     restoreCalculationState();
     saveState();
-    const seconds = Math.min(
-      300,
-      Math.max(1, Number.parseInt($("hv-minsteps-time").value, 10) || SEARCH_DEFAULT_SECONDS),
+    const seconds = Math.max(
+      1,
+      Number.parseInt($("hv-minsteps-time").value, 10) || SEARCH_DEFAULT_SECONDS,
     );
     const donors = state.allEquips.filter((equip) => !equip.used);
     const startedAt = performance.now();
