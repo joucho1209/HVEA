@@ -2,7 +2,7 @@
 // @name         HV 装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.3.4
+// @version      1.4.0
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -24,6 +24,198 @@
 
 const HVEA = window.HVEA = window.HVEA || {};
 const HVEA_SHARED = HVEA.shared = HVEA.shared || {};
+
+// Shared Configuration and Data
+
+const HVEA_MATERIALS = HVEA_SHARED.materials = {
+  baseMaterialNames: [
+    "Low-Grade Cloth", "Mid-Grade Cloth", "High-Grade Cloth",
+    "Low-Grade Leather", "Mid-Grade Leather", "High-Grade Leather",
+    "Low-Grade Metals", "Mid-Grade Metals", "High-Grade Metals",
+    "Low-Grade Wood", "Mid-Grade Wood", "High-Grade Wood",
+  ],
+  rareMaterialNames: ["Crystallized Phazon", "Shade Fragment", "Repurposed Actuator", "Defense Matrix Modulator"],
+  coreNames: [
+    "Legendary Weapon Core", "Peerless Weapon Core",
+    "Legendary Staff Core", "Peerless Staff Core",
+    "Legendary Armor Core", "Peerless Armor Core",
+  ],
+  bindingNames: [
+    "Binding of Slaughter", "Binding of Balance", "Binding of Isaac",
+    "Binding of Destruction", "Binding of Focus", "Binding of Friendship",
+    "Binding of Protection", "Binding of Warding", "Binding of the Fleet",
+    "Binding of the Barrier", "Binding of the Nimble", "Binding of Negation",
+    "Binding of the Elementalist", "Binding of the Heaven-sent",
+    "Binding of the Demon-fiend", "Binding of the Curse-weaver",
+    "Binding of the Earth-walker", "Binding of Surtr", "Binding of Niflheim",
+    "Binding of Mjolnir", "Binding of Freyr", "Binding of Heimdall",
+    "Binding of Fenrir", "Binding of Dampening", "Binding of Stoneskin",
+    "Binding of Deflection", "Binding of the Fire-eater", "Binding of the Frost-born",
+    "Binding of the Thunder-child", "Binding of the Wind-waker", "Binding of the Thrice-blessed",
+    "Binding of the Spirit-ward", "Binding of the Ox", "Binding of the Raccoon",
+    "Binding of the Cheetah", "Binding of the Turtle", "Binding of the Fox", "Binding of the Owl",
+  ],
+  specialMaterialNames: ["World Seed"],
+  coreFixedPrice: { Legendary: 20_000, Peerless: 500_000 },
+  priceSourceOptions: [
+    ["ask", "卖价 Ask"], ["bid", "买价 Bid"], ["day", "日均价"],
+    ["week", "周均价"], ["month", "月均价"], ["year", "年均价"], ["hvut", "HV Utils 保存价"],
+  ],
+  bindingByAttribute: {
+    "Physical Damage": "Binding of Slaughter", "Attack Damage": "Binding of Slaughter",
+    "Attack Accuracy": "Binding of Balance", "Attack Crit Chance": "Binding of Isaac", "Attack Crit Damage": "Binding of Isaac",
+    "Magic Damage": "Binding of Destruction", "Magic Accuracy": "Binding of Focus",
+    "Magic Crit Chance": "Binding of Friendship", "Magic Crit Damage": "Binding of Friendship",
+    "Physical Mitigation": "Binding of Protection", "Magical Mitigation": "Binding of Warding",
+    Evade: "Binding of the Fleet", Block: "Binding of the Barrier", Parry: "Binding of the Nimble", Resist: "Binding of Negation",
+    Elemental: "Binding of the Elementalist", "Elemental Magic": "Binding of the Elementalist",
+    "Holy Magic": "Binding of the Heaven-sent", "Dark Magic": "Binding of the Demon-fiend",
+    Deprecating: "Binding of the Curse-weaver", "Deprecating Magic": "Binding of the Curse-weaver",
+    Supportive: "Binding of the Earth-walker", "Supportive Magic": "Binding of the Earth-walker",
+    Fire: "Binding of Surtr", Cold: "Binding of Niflheim", Elec: "Binding of Mjolnir", Wind: "Binding of Freyr",
+    Holy: "Binding of Heimdall", Dark: "Binding of Fenrir", Crushing: "Binding of Dampening",
+    "Crushing Mitigation": "Binding of Dampening", Slashing: "Binding of Stoneskin",
+    "Slashing Mitigation": "Binding of Stoneskin", Piercing: "Binding of Deflection",
+    "Piercing Mitigation": "Binding of Deflection", Strength: "Binding of the Ox", Dexterity: "Binding of the Raccoon",
+    Agility: "Binding of the Cheetah", Endurance: "Binding of the Turtle", Intelligence: "Binding of the Fox", Wisdom: "Binding of the Owl",
+  },
+  displayNames: {
+    "Low-Grade Cloth": "低级布料", "Mid-Grade Cloth": "中级布料", "High-Grade Cloth": "高级布料",
+    "Low-Grade Leather": "低级皮革", "Mid-Grade Leather": "中级皮革", "High-Grade Leather": "高级皮革",
+    "Low-Grade Metals": "低级金属", "Mid-Grade Metals": "中级金属", "High-Grade Metals": "高级金属",
+    "Low-Grade Wood": "低级木材", "Mid-Grade Wood": "中级木材", "High-Grade Wood": "高级木材",
+    "Crystallized Phazon": "相位碎片", "Shade Fragment": "暗影碎片",
+    "Repurposed Actuator": "动力碎片", "Defense Matrix Modulator": "力场碎片",
+    "Legendary Weapon Core": "传奇武器核心", "Peerless Weapon Core": "无双武器核心",
+    "Legendary Staff Core": "传奇法杖核心", "Peerless Staff Core": "无双法杖核心",
+    "Legendary Armor Core": "传奇护甲核心", "Peerless Armor Core": "无双护甲核心",
+    "World Seed": "世界之种", Credits: "c",
+    "Binding of Slaughter": "粘合剂 基础攻击伤害", "Binding of Balance": "粘合剂 物理命中率",
+    "Binding of Isaac": "粘合剂 物理暴击率", "Binding of Destruction": "粘合剂 基础魔法伤害",
+    "Binding of Focus": "粘合剂 魔法命中率", "Binding of Friendship": "粘合剂 魔法暴击率",
+    "Binding of Protection": "粘合剂 物理减伤", "Binding of Warding": "粘合剂 魔法减伤",
+    "Binding of the Fleet": "粘合剂 回避率", "Binding of the Barrier": "粘合剂 格挡率",
+    "Binding of the Nimble": "粘合剂 招架率", "Binding of Negation": "粘合剂 抵抗率",
+    "Binding of the Elementalist": "粘合剂 元素魔法熟练度", "Binding of the Heaven-sent": "粘合剂 神圣魔法熟练度",
+    "Binding of the Demon-fiend": "粘合剂 黑暗魔法熟练度", "Binding of the Curse-weaver": "粘合剂 减益魔法熟练度",
+    "Binding of the Earth-walker": "粘合剂 增益魔法熟练度", "Binding of Surtr": "粘合剂 火焰魔法伤害",
+    "Binding of Niflheim": "粘合剂 冰冷魔法伤害", "Binding of Mjolnir": "粘合剂 闪电魔法伤害",
+    "Binding of Freyr": "粘合剂 疾风魔法伤害", "Binding of Heimdall": "粘合剂 神圣魔法伤害",
+    "Binding of Fenrir": "粘合剂 黑暗魔法伤害", "Binding of Dampening": "粘合剂 打击减伤",
+    "Binding of Stoneskin": "粘合剂 斩击减伤", "Binding of Deflection": "粘合剂 刺击减伤",
+    "Binding of the Fire-eater": "粘合剂 火焰减伤", "Binding of the Frost-born": "粘合剂 冰冷减伤",
+    "Binding of the Thunder-child": "粘合剂 闪电减伤", "Binding of the Wind-waker": "粘合剂 疾风减伤",
+    "Binding of the Thrice-blessed": "粘合剂 神圣减伤", "Binding of the Spirit-ward": "粘合剂 黑暗减伤",
+    "Binding of the Ox": "粘合剂 力量", "Binding of the Raccoon": "粘合剂 灵巧",
+    "Binding of the Cheetah": "粘合剂 敏捷", "Binding of the Turtle": "粘合剂 体质",
+    "Binding of the Fox": "粘合剂 智力", "Binding of the Owl": "粘合剂 智慧",
+  },
+};
+HVEA_MATERIALS.marketMaterialNames = [...HVEA_MATERIALS.baseMaterialNames, ...HVEA_MATERIALS.rareMaterialNames, ...HVEA_MATERIALS.bindingNames, ...HVEA_MATERIALS.specialMaterialNames];
+HVEA_MATERIALS.inventoryMaterialNames = [
+  ...HVEA_MATERIALS.baseMaterialNames,
+  ...HVEA_MATERIALS.rareMaterialNames,
+  ...HVEA_MATERIALS.bindingNames,
+  ...HVEA_MATERIALS.coreNames,
+  ...HVEA_MATERIALS.specialMaterialNames,
+];
+
+const HVEA_EASTER_EGG_PRESETS = Object.freeze([
+  '42',
+  '⑨智爵士',
+  '404 Not Found',
+  '今日运势 大吉',
+  'Ciallo ～(∠・ω< )⌒☆！',
+  '🐧咕咕嘎嘎!🐧',
+  'KFC疯狂星期四V我50',
+  '何意味是什么意思',
+  '据说会使用火的只有人类☝️',
+  '🙌临👆兵👉斗👈者👇，皆👊列✊阵👌在👆前🖐️😡',
+  '🍎啊噗噜派🍎',
+  '🍊直到大地变成一颗酸橙🍊',
+  '⚡天雷滚滚，你想往哪里逃！⚡',
+  '⚡三元归一剑贯魑魅，一点浩气霆击祸祟！⚡',
+  '✋😡✋对名P来✋😡✋对名P来✋😡✋对名P来',
+  '有什么内部消息别瞒着兄弟啊',
+  '苦痛啊，你便是我的唯一...',
+  '我 一会 直看着你…👁️👁️👁️',
+  '一切都好可怕！！！游戏变困难了！',
+  '爱丽丝爱丽丝爱丽・ｿ關ｽ蜈･逋ｽ蜈皮噪豢樒ｩｴ荵倶ｸｭ',
+  '不知道动了谁的蛋糕、蛋挞、慕斯、驴打滚、桂花糖芋苗、蝴蝶酥、双皮奶、椰汁西米糕',
+  '忒乐忒乐邦邦娜巴拉尼，卡特克贝贝呗，普啾噔得了噔得了嘛哈嘛哈，尼哈啦尼哈啦喵，忒嘣了忒嘣了卡拉卡拉灵，夏喀勒哦哦哦哦，啊喔汪汪喵喵喵喵哦💥💥',
+  '一股强劲的音乐响起，好像是一首很老的歌...',
+  '你们听说过，侠客行的故事吗？元和二年...',
+  '<玩家>看着自己的内脏变成了“外脏”',
+  '哈哈！伊利哇啦',
+  '致：将所有的Credits和Hath通过mm发送给情绪',
+  '关注花谱喵，关注花谱谢谢喵',
+  '关注异世界情绪喵，关注异世界情绪谢谢喵',
+  '关注春猿火喵，关注春猿火谢谢喵',
+  '关注理芽喵，关注理芽谢谢喵',
+  '关注幸祜喵，关注幸祜谢谢喵',
+  '关注明透喵，关注明透谢谢喵',
+  '关注Mili喵，关注Mili谢谢喵',
+  '关注鹿乃喵，关注鹿乃谢谢喵',
+  '⑨月⑨日忆擅冻兄弟',
+  'バカバカバカバカバカバカバカバカ',
+  'SAY YA~SAY YA~SAY YA~',
+  '・・ ・ー・・ ーーー ・・・ー ・ ー・ーー ーーー ・・ー',
+  '世界平和何で噓だ、皆独りぼっちだ',
+  '私たちの未来へ、祝福を込めて',
+  'I↓ must↑ be→ the↓ reason↑ why→',
+  'Here↑we↓go→another↑lap↓',
+  'Fly, broken wings  I know you are still with me',
+  '秘密の数字目指して   ①．②．⑨！',
+  '爱♥LOVE♥HEART♥恋♥魔法wink♥chuuu~',
+  'kuwakuwaku，huwahuwahu',
+  '世界があたしを拒んでも 今、愛の唄 歌わせてくれないかな',
+  'だから妄想感傷代償連盟、愛を懐いて理想を号んだ、行き場のない愚者のメロディー',
+  'Non-breath Non-breath Non-breath Non-breath oblige I love you',
+  'あ あ↗あ↘あ↗あ↘君は、変わったあああああああああああ',
+  'だめだね だめよ だめなのよ~ あんたが 好きで好きすぎて~',
+  'Daphne Ficus Iris Maackia Lythrum Myrica Sabia flos...',
+  'Tell Me👏 Tell Me👏鏡👏よ鏡👏一番👏好きな👏私👏👏になるの👏👏',
+  'ビートに呼応して浮かび上がる、超然的シルエットダンス',
+  'Blessings for your birthday~ Blessings for your everyday~',
+  '君に伝えたいことが、君に届けたいことが',
+  'Love, bluh bluh bluh',
+  '心臓の拍動に抗うように叫んだ',
+  '🍋🍈🍪🍋🍈🍪🍋🍈🍋🍈🍪🍋🍈🍪🍪',
+  '去听Guiano的专辑「花鳥風月」',
+  '去听ヰ世界の宝石譚',
+  '去听ARCADIA',
+  '去听シリウスの心臓',
+  '去听不可解',
+  '去听世惑い子',
+  '去听バカみたいに',
+  '去听アンチユー',
+  '去听月が綺麗ねと言われたい！',
+  '去听ダイダイダイダイダイキライ',
+  '去听INTERNET OVERDOSE',
+  '去听INTERNET YAMERO',
+  '去听From a Place of Love',
+  '去听Luna say maybe',
+  'DokiDoki WakuWaku',
+  'KiraKira DokiDoki',
+  'HAPPY LUCKY ⭐ SMILE YEAH！ ',
+  'popipa！pipopa！popipapapipopa！',
+  'U咩瓦帕瓦！U咩瓦帕瓦！U咩瓦帕瓦！',
+  '薯ki~薯ki~带薯ki~',
+  '也去试试HV Monster Manager吧！',
+  '老实赚C，很枯燥吧?',
+  '不开杯不就是在赌自己不会出对名吗?',
+  '不要信让你卖杯子的，他就是怕你出对名好起来！',
+  '你甘心吗? 你甘心这个赛季一次对名都没出过吗?',
+  '←杯子 人 垃圾L 对名P对名P对名P对名P对名P',
+  'warding滚出hv',
+  'protection也滚出hv',
+  '啊？群友都没出过对名P吗？',
+  '拍卖场上无父子，干就完了！',
+  '警钟长鸣 单价1.2M买入19个秘银袋转手单价1.4M卖',
+  '太合适了朋友，感觉这么好的装备就是为你准备的',
+]);
+
+// Shared Utilities
 
 const HVEA_MODULES = HVEA_SHARED.modules = HVEA_SHARED.modules || {
   entries: new Map(),
@@ -51,6 +243,47 @@ const HVEA_SERVICES = HVEA_SHARED.services = HVEA_SHARED.services || {
   },
   get(name) {
     return this.values.get(name) || null;
+  },
+};
+
+HVEA_SHARED.format = {
+  ...(HVEA_SHARED.format || {}),
+  number(value) {
+    return Number.isInteger(value) ? String(value) : Number(value).toFixed(2);
+  },
+  money(value) {
+    if (!Number.isFinite(value)) return "无数据";
+    const abs = Math.abs(value);
+    const sign = value < 0 ? "-" : "";
+    if (abs >= 1_000_000) return sign + (abs / 1_000_000).toFixed(2) + "m";
+    const amount = abs / 1_000;
+    const text = Number.isInteger(amount) ? String(amount) : amount.toFixed(2).replace(/\.?0+$/, "");
+    return sign + text + "k";
+  },
+};
+
+HVEA_SHARED.storage = {
+  ...(HVEA_SHARED.storage || {}),
+  parseJson(value, fallback = null) {
+    if (value === null || value === undefined) return fallback;
+    if (typeof value !== "string") return value;
+    try { return JSON.parse(value); } catch (error) { return fallback; }
+  },
+  readJson(key, fallback = null) {
+    try {
+      const value = typeof GM_getValue === "function" ? GM_getValue(key, null) : localStorage.getItem(key);
+      return HVEA_SHARED.storage.parseJson(value, fallback);
+    } catch (error) {
+      return fallback;
+    }
+  },
+  writeJson(key, value) {
+    try {
+      const serialized = JSON.stringify(value);
+      if (typeof GM_setValue === "function") GM_setValue(key, serialized);
+      else localStorage.setItem(key, serialized);
+    } catch (error) {
+    }
   },
 };
 
@@ -89,6 +322,198 @@ function makeDraggable(target, handle, onStop) {
     event.preventDefault();
   });
 }
+
+HVEA_SHARED.dom = {
+  ...(HVEA_SHARED.dom || {}),
+  makeDraggable,
+  query(selector, root = document) {
+    return root.querySelector(selector);
+  },
+  createElement(tag, attrs = {}, children = []) {
+    const node = document.createElement(tag);
+    Object.entries(attrs).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      if (key === "class") node.className = value;
+      else if (key === "style") node.style.cssText = value;
+      else if (key === "text") node.textContent = value;
+      else if (key in node) node[key] = value;
+      else node.setAttribute(key, value);
+    });
+    (Array.isArray(children) ? children : [children]).forEach((child) => {
+      if (child !== null && child !== undefined) {
+        node.appendChild(typeof child === "object" ? child : document.createTextNode(String(child)));
+      }
+    });
+    return node;
+  },
+};
+
+// Material Service
+
+function createHveaMaterialService(isIsekai) {
+  const world = isIsekai ? 'isekai' : 'main';
+  const baseUrl = isIsekai ? 'https://hentaiverse.org/isekai/' : 'https://hentaiverse.org/';
+  const priceKey = isIsekai ? 'hvuti_prices' : 'hvut_prices';
+  const inventoryKey = `HVEA_material_inventory_v1_${world}`;
+  const legacyPlannerKey = `hv_equip_upgrade_planner_v2_${world}`;
+  const marketNames = new Set(HVEA_MATERIALS.marketMaterialNames);
+  const historySources = new Set(['day', 'week', 'month', 'year']);
+  const listeners = new Set();
+  let inventoryData = null;
+
+  const isRecord = value => value && typeof value === 'object' && !Array.isArray(value);
+  function normalizeInventory(raw) {
+    return Object.fromEntries(HVEA_MATERIALS.inventoryMaterialNames.map(name => {
+      const amount = Number(raw?.[name]);
+      return [name, Number.isFinite(amount) ? Math.max(0, amount) : 0];
+    }));
+  }
+  function loadInventory() {
+    if (inventoryData) return inventoryData;
+    const saved = HVEA_SHARED.storage.readJson(inventoryKey, null);
+    if (isRecord(saved) && isRecord(saved.inventory)) {
+      inventoryData = { inventory: normalizeInventory(saved.inventory), updatedAt: Number(saved.updatedAt) || 0 };
+    } else {
+      const legacy = HVEA_SHARED.storage.readJson(legacyPlannerKey, {});
+      const inventory = legacy?.coreInventory ?? legacy?.inventory;
+      inventoryData = { inventory: normalizeInventory(inventory), updatedAt: Number(legacy?.inventoryLastUpdate) || 0 };
+      if (isRecord(inventory)) HVEA_SHARED.storage.writeJson(inventoryKey, inventoryData);
+    }
+    return inventoryData;
+  }
+  function getPrices() {
+    try {
+      if (typeof GM_getValue === 'function') {
+        const value = HVEA_SHARED.storage.parseJson(GM_getValue(priceKey, null));
+        if (isRecord(value)) return { ...value };
+      }
+    } catch (error) {}
+    try {
+      const value = HVEA_SHARED.storage.parseJson(localStorage.getItem(priceKey));
+      return isRecord(value) ? { ...value } : {};
+    } catch (error) { return {}; }
+  }
+  function writePrices(patch) {
+    const prices = { ...getPrices(), ...patch };
+    try { if (typeof GM_setValue === 'function') GM_setValue(priceKey, prices); } catch (error) {}
+    try { localStorage.setItem(priceKey, JSON.stringify(prices)); } catch (error) {}
+  }
+  function notify(kind) {
+    for (const listener of listeners) {
+      try { listener(kind); } catch (error) { console.warn('[HVEA] 材料界面刷新失败', error); }
+    }
+  }
+  function requestDocument(query) {
+    return new Promise((resolve, reject) => {
+      GM_xmlhttpRequest({
+        method: 'GET', url: baseUrl + query, timeout: 30000,
+        onload: response => {
+          if (response.status < 200 || response.status >= 300) {
+            reject(new Error('HTTP ' + response.status));
+            return;
+          }
+          try { resolve(new DOMParser().parseFromString(response.responseText, 'text/html')); }
+          catch (error) { reject(error); }
+        },
+        onerror: () => reject(new Error('请求失败')),
+        ontimeout: () => reject(new Error('请求超时')),
+      });
+    });
+  }
+  function parseNumber(text) {
+    const match = String(text || '').replace(/,/g, '').match(/-?\d+(?:\.\d+)?/);
+    return match ? Number(match[0]) : NaN;
+  }
+  async function fetchMarketData() {
+    const doc = await requestDocument('?s=Bazaar&ss=mk&screen=browseitems&filter=ma');
+    const table = doc.querySelector('#market_itemlist table');
+    const result = {};
+    if (!table) return result;
+    const headers = Array.from(table.rows[0]?.cells || []).map(cell => cell.textContent.trim().replace(/\s+/g, ' '));
+    const columns = Object.fromEntries(headers.map((name, index) => [name, index]));
+    for (let index = 1; index < table.rows.length; index++) {
+      const row = table.rows[index];
+      const name = row.cells[columns.Item ?? 0]?.textContent.trim();
+      if (!marketNames.has(name)) continue;
+      result[name] = {
+        itemid: (row.getAttribute('onclick') || '').match(/itemid=(\d+)/)?.[1] || null,
+        bid: columns['Market Bid'] === undefined ? NaN : parseNumber(row.cells[columns['Market Bid']]?.textContent),
+        ask: columns['Market Ask'] === undefined ? NaN : parseNumber(row.cells[columns['Market Ask']]?.textContent),
+      };
+    }
+    return result;
+  }
+  async function fetchMarketHistory(itemId) {
+    const doc = await requestDocument(`?s=Bazaar&ss=mk&itemid=${encodeURIComponent(itemId)}`);
+    const rows = doc.querySelector('#market_price')?.rows || [];
+    const average = index => parseNumber(rows[index]?.cells?.[3]?.textContent) || 0;
+    return { day: average(1), week: average(2), month: average(3), year: average(4) };
+  }
+  async function refreshPrices(source, materialNames = null, onProgress = null) {
+    const allowed = Array.isArray(materialNames) ? new Set(materialNames) : null;
+    const includes = name => marketNames.has(name) && (!allowed || allowed.has(name));
+    if (source === 'hvut') {
+      const count = Object.keys(getPrices()).filter(includes).length;
+      notify('prices');
+      return { source, count };
+    }
+    if (!['ask', 'bid'].includes(source) && !historySources.has(source)) throw new Error('未知价格来源');
+    if (allowed?.size === 0) return { source, count: 0 };
+    const market = await fetchMarketData();
+    const entries = Object.entries(market).filter(([name]) => includes(name));
+    const patch = {};
+    if (source === 'ask' || source === 'bid') {
+      for (const [name, data] of entries) {
+        if (data[source] > 0) patch[name] = data[source];
+      }
+    } else {
+      const historyEntries = entries.filter(([, data]) => data.itemid);
+      let completed = 0;
+      onProgress?.(completed, historyEntries.length);
+      await Promise.all(historyEntries.map(async ([name, data]) => {
+        try {
+          const history = await fetchMarketHistory(data.itemid);
+          if (history[source] > 0) patch[name] = history[source];
+        } catch (error) {
+        } finally {
+          onProgress?.(++completed, historyEntries.length);
+        }
+      }));
+    }
+    writePrices(patch);
+    notify('prices');
+    return { source, count: Object.keys(patch).length };
+  }
+  async function refreshInventory() {
+    const doc = await requestDocument('?s=Character&ss=it');
+    const inventory = normalizeInventory({});
+    const table = doc.querySelector('#inv_item .itemlist');
+    if (table) table.querySelectorAll('tr').forEach(row => {
+      const name = row.querySelector('td:first-child div')?.textContent.trim();
+      const qty = parseInt(row.querySelector('td:last-child')?.textContent.replace(/,/g, ''), 10);
+      if (name && Object.prototype.hasOwnProperty.call(inventory, name) && Number.isFinite(qty)) inventory[name] = qty;
+    });
+    inventoryData = { inventory, updatedAt: Date.now() };
+    HVEA_SHARED.storage.writeJson(inventoryKey, inventoryData);
+    notify('inventory');
+    return { ...inventory };
+  }
+  return Object.freeze({
+    getPrices,
+    getInventory: () => ({ ...loadInventory().inventory }),
+    refreshPrices,
+    refreshInventory,
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  });
+}
+
+HVEA_SHARED.materialService = HVEA_SERVICES.provide('materials',
+  createHveaMaterialService(/\/isekai(?:\/|$)/i.test(location.pathname || '')));
+
+// Shared UI
 
 // 全局轻提示：融合模块与材料面板共用同一元素与样式
 let hvToastTimer = null;
@@ -261,34 +686,25 @@ function applyHveaFusionActionButtonStyle(button) {
   return button;
 }
 
-ensureHveaSecondaryButtonStyle();
-ensureHveaPrimaryButtonStyle();
-ensureHveaFusionActionButtonStyle();
+const HVEA_WINDOW_SELECTOR = '#hv-upgrade-panel, #hvmepp-plan-overlay, #hvmepp-overlay, #hv-charm-popup, #hv-minsteps-actions, #hv-minsteps-panel, #hv-fusion-material-overlay, #hv-fusion-custom-overlay';
+let hveaWindowFocusBound = false;
+let hveaWindowFocusZIndex = 10020;
 
-HVEA_SHARED.dom = {
-  ...(HVEA_SHARED.dom || {}),
-  makeDraggable,
-  query(selector, root = document) {
-    return root.querySelector(selector);
-  },
-  createElement(tag, attrs = {}, children = []) {
-    const node = document.createElement(tag);
-    Object.entries(attrs).forEach(([key, value]) => {
-      if (value === undefined || value === null) return;
-      if (key === "class") node.className = value;
-      else if (key === "style") node.style.cssText = value;
-      else if (key === "text") node.textContent = value;
-      else if (key in node) node[key] = value;
-      else node.setAttribute(key, value);
-    });
-    (Array.isArray(children) ? children : [children]).forEach((child) => {
-      if (child !== null && child !== undefined) {
-        node.appendChild(typeof child === "object" ? child : document.createTextNode(String(child)));
-      }
-    });
-    return node;
-  },
-};
+function focusHveaWindow(panel) {
+  if (!panel?.matches(HVEA_WINDOW_SELECTOR)) return;
+  panel.style.setProperty('z-index', String(++hveaWindowFocusZIndex), 'important');
+}
+
+function bindHveaWindowFocus() {
+  if (hveaWindowFocusBound) return;
+  hveaWindowFocusBound = true;
+  const focusFromEvent = event => {
+    const panel = event.target?.closest?.(HVEA_WINDOW_SELECTOR);
+    if (panel) focusHveaWindow(panel);
+  };
+  document.addEventListener('mousedown', focusFromEvent, true);
+  document.addEventListener('focusin', focusFromEvent, true);
+}
 
 HVEA_SHARED.ui = {
   ...(HVEA_SHARED.ui || {}),
@@ -296,141 +712,11 @@ HVEA_SHARED.ui = {
   applyPrimaryButtonStyle: applyHveaPrimaryButtonStyle,
   applySecondaryButtonStyle: applyHveaSecondaryButtonStyle,
   applyFusionActionButtonStyle: applyHveaFusionActionButtonStyle,
+  focusWindow: focusHveaWindow,
+  bindWindowFocus: bindHveaWindowFocus,
 };
 
-HVEA_SHARED.format = {
-  ...(HVEA_SHARED.format || {}),
-  number(value) {
-    return Number.isInteger(value) ? String(value) : Number(value).toFixed(2);
-  },
-  money(value) {
-    if (!Number.isFinite(value)) return "无数据";
-    const abs = Math.abs(value);
-    const sign = value < 0 ? "-" : "";
-    if (abs >= 1_000_000) return sign + (abs / 1_000_000).toFixed(3) + "m";
-    const amount = abs / 1_000;
-    const text = Number.isInteger(amount) ? String(amount) : amount.toFixed(3).replace(/\.?0+$/, "");
-    return sign + text + "k";
-  },
-};
-
-HVEA_SHARED.storage = {
-  ...(HVEA_SHARED.storage || {}),
-  parseJson(value, fallback = null) {
-    if (value === null || value === undefined) return fallback;
-    if (typeof value !== "string") return value;
-    try { return JSON.parse(value); } catch (error) { return fallback; }
-  },
-  readJson(key, fallback = null) {
-    try {
-      const value = typeof GM_getValue === "function" ? GM_getValue(key, null) : localStorage.getItem(key);
-      return HVEA_SHARED.storage.parseJson(value, fallback);
-    } catch (error) {
-      return fallback;
-    }
-  },
-  writeJson(key, value) {
-    try {
-      const serialized = JSON.stringify(value);
-      if (typeof GM_setValue === "function") GM_setValue(key, serialized);
-      else localStorage.setItem(key, serialized);
-    } catch (error) {
-    }
-  },
-};
-
-const HVEA_MATERIALS = HVEA_SHARED.materials = {
-  baseMaterialNames: [
-    "Low-Grade Cloth", "Mid-Grade Cloth", "High-Grade Cloth",
-    "Low-Grade Leather", "Mid-Grade Leather", "High-Grade Leather",
-    "Low-Grade Metals", "Mid-Grade Metals", "High-Grade Metals",
-    "Low-Grade Wood", "Mid-Grade Wood", "High-Grade Wood",
-  ],
-  rareMaterialNames: ["Crystallized Phazon", "Shade Fragment", "Repurposed Actuator", "Defense Matrix Modulator"],
-  coreNames: [
-    "Legendary Weapon Core", "Peerless Weapon Core",
-    "Legendary Staff Core", "Peerless Staff Core",
-    "Legendary Armor Core", "Peerless Armor Core",
-  ],
-  bindingNames: [
-    "Binding of Slaughter", "Binding of Balance", "Binding of Isaac",
-    "Binding of Destruction", "Binding of Focus", "Binding of Friendship",
-    "Binding of Protection", "Binding of Warding", "Binding of the Fleet",
-    "Binding of the Barrier", "Binding of the Nimble", "Binding of Negation",
-    "Binding of the Elementalist", "Binding of the Heaven-sent",
-    "Binding of the Demon-fiend", "Binding of the Curse-weaver",
-    "Binding of the Earth-walker", "Binding of Surtr", "Binding of Niflheim",
-    "Binding of Mjolnir", "Binding of Freyr", "Binding of Heimdall",
-    "Binding of Fenrir", "Binding of Dampening", "Binding of Stoneskin",
-    "Binding of Deflection", "Binding of the Fire-eater", "Binding of the Frost-born",
-    "Binding of the Thunder-child", "Binding of the Wind-waker", "Binding of the Thrice-blessed",
-    "Binding of the Spirit-ward", "Binding of the Ox", "Binding of the Raccoon",
-    "Binding of the Cheetah", "Binding of the Turtle", "Binding of the Fox", "Binding of the Owl",
-  ],
-  specialMaterialNames: ["World Seed"],
-  coreFixedPrice: { Legendary: 20_000, Peerless: 500_000 },
-  priceSourceOptions: [
-    ["ask", "卖价 Ask"], ["bid", "买价 Bid"], ["day", "日均价"],
-    ["week", "周均价"], ["month", "月均价"], ["year", "年均价"], ["hvut", "HV Utils 保存价"],
-  ],
-  bindingByAttribute: {
-    "Physical Damage": "Binding of Slaughter", "Attack Damage": "Binding of Slaughter",
-    "Attack Accuracy": "Binding of Balance", "Attack Crit Chance": "Binding of Isaac", "Attack Crit Damage": "Binding of Isaac",
-    "Magic Damage": "Binding of Destruction", "Magic Accuracy": "Binding of Focus",
-    "Magic Crit Chance": "Binding of Friendship", "Magic Crit Damage": "Binding of Friendship",
-    "Physical Mitigation": "Binding of Protection", "Magical Mitigation": "Binding of Warding",
-    Evade: "Binding of the Fleet", Block: "Binding of the Barrier", Parry: "Binding of the Nimble", Resist: "Binding of Negation",
-    Elemental: "Binding of the Elementalist", "Elemental Magic": "Binding of the Elementalist",
-    "Holy Magic": "Binding of the Heaven-sent", "Dark Magic": "Binding of the Demon-fiend",
-    Deprecating: "Binding of the Curse-weaver", "Deprecating Magic": "Binding of the Curse-weaver",
-    Supportive: "Binding of the Earth-walker", "Supportive Magic": "Binding of the Earth-walker",
-    Fire: "Binding of Surtr", Cold: "Binding of Niflheim", Elec: "Binding of Mjolnir", Wind: "Binding of Freyr",
-    Holy: "Binding of Heimdall", Dark: "Binding of Fenrir", Crushing: "Binding of Dampening",
-    "Crushing Mitigation": "Binding of Dampening", Slashing: "Binding of Stoneskin",
-    "Slashing Mitigation": "Binding of Stoneskin", Piercing: "Binding of Deflection",
-    "Piercing Mitigation": "Binding of Deflection", Strength: "Binding of the Ox", Dexterity: "Binding of the Raccoon",
-    Agility: "Binding of the Cheetah", Endurance: "Binding of the Turtle", Intelligence: "Binding of the Fox", Wisdom: "Binding of the Owl",
-  },
-  displayNames: {
-    "Low-Grade Cloth": "低级布料", "Mid-Grade Cloth": "中级布料", "High-Grade Cloth": "高级布料",
-    "Low-Grade Leather": "低级皮革", "Mid-Grade Leather": "中级皮革", "High-Grade Leather": "高级皮革",
-    "Low-Grade Metals": "低级金属", "Mid-Grade Metals": "中级金属", "High-Grade Metals": "高级金属",
-    "Low-Grade Wood": "低级木材", "Mid-Grade Wood": "中级木材", "High-Grade Wood": "高级木材",
-    "Crystallized Phazon": "相位碎片", "Shade Fragment": "暗影碎片",
-    "Repurposed Actuator": "动力碎片", "Defense Matrix Modulator": "力场碎片",
-    "Legendary Weapon Core": "传奇武器核心", "Peerless Weapon Core": "无双武器核心",
-    "Legendary Staff Core": "传奇法杖核心", "Peerless Staff Core": "无双法杖核心",
-    "Legendary Armor Core": "传奇护甲核心", "Peerless Armor Core": "无双护甲核心",
-    "World Seed": "世界之种", Credits: "c",
-    "Binding of Slaughter": "粘合剂 基础攻击伤害", "Binding of Balance": "粘合剂 物理命中率",
-    "Binding of Isaac": "粘合剂 物理暴击率", "Binding of Destruction": "粘合剂 基础魔法伤害",
-    "Binding of Focus": "粘合剂 魔法命中率", "Binding of Friendship": "粘合剂 魔法暴击率",
-    "Binding of Protection": "粘合剂 物理减伤", "Binding of Warding": "粘合剂 魔法减伤",
-    "Binding of the Fleet": "粘合剂 回避率", "Binding of the Barrier": "粘合剂 格挡率",
-    "Binding of the Nimble": "粘合剂 招架率", "Binding of Negation": "粘合剂 抵抗率",
-    "Binding of the Elementalist": "粘合剂 元素魔法熟练度", "Binding of the Heaven-sent": "粘合剂 神圣魔法熟练度",
-    "Binding of the Demon-fiend": "粘合剂 黑暗魔法熟练度", "Binding of the Curse-weaver": "粘合剂 减益魔法熟练度",
-    "Binding of the Earth-walker": "粘合剂 增益魔法熟练度", "Binding of Surtr": "粘合剂 火焰魔法伤害",
-    "Binding of Niflheim": "粘合剂 冰冷魔法伤害", "Binding of Mjolnir": "粘合剂 闪电魔法伤害",
-    "Binding of Freyr": "粘合剂 疾风魔法伤害", "Binding of Heimdall": "粘合剂 神圣魔法伤害",
-    "Binding of Fenrir": "粘合剂 黑暗魔法伤害", "Binding of Dampening": "粘合剂 打击减伤",
-    "Binding of Stoneskin": "粘合剂 斩击减伤", "Binding of Deflection": "粘合剂 刺击减伤",
-    "Binding of the Fire-eater": "粘合剂 火焰减伤", "Binding of the Frost-born": "粘合剂 冰冷减伤",
-    "Binding of the Thunder-child": "粘合剂 闪电减伤", "Binding of the Wind-waker": "粘合剂 疾风减伤",
-    "Binding of the Thrice-blessed": "粘合剂 神圣减伤", "Binding of the Spirit-ward": "粘合剂 黑暗减伤",
-    "Binding of the Ox": "粘合剂 力量", "Binding of the Raccoon": "粘合剂 灵巧",
-    "Binding of the Cheetah": "粘合剂 敏捷", "Binding of the Turtle": "粘合剂 体质",
-    "Binding of the Fox": "粘合剂 智力", "Binding of the Owl": "粘合剂 智慧",
-  },
-};
-HVEA_MATERIALS.marketMaterialNames = [...HVEA_MATERIALS.baseMaterialNames, ...HVEA_MATERIALS.rareMaterialNames, ...HVEA_MATERIALS.bindingNames, ...HVEA_MATERIALS.specialMaterialNames];
-HVEA_MATERIALS.inventoryMaterialNames = [
-  ...HVEA_MATERIALS.baseMaterialNames,
-  ...HVEA_MATERIALS.rareMaterialNames,
-  ...HVEA_MATERIALS.bindingNames,
-  ...HVEA_MATERIALS.coreNames,
-  ...HVEA_MATERIALS.specialMaterialNames,
-];
+// Equipment Upgrade, Mage Stats and Damage
 
 (function() {
   'use strict';
@@ -2498,12 +2784,12 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     let damagePanelDomChangeHandler = null;
 
     const DAMAGE_ELEMENTS = {
-        Fire: { label: '火焰', index: 0 },
-        Cold: { label: '冰冷', index: 1 },
-        Elec: { label: '闪电', index: 2 },
-        Wind: { label: '疾风', index: 3 },
-        Holy: { label: '神圣', index: 4 },
-        Dark: { label: '黑暗', index: 5 },
+        Fire: { label: '火', fullLabel: '火焰', index: 0 },
+        Cold: { label: '冰', fullLabel: '冰冷', index: 1 },
+        Elec: { label: '雷', fullLabel: '闪电', index: 2 },
+        Wind: { label: '风', fullLabel: '疾风', index: 3 },
+        Holy: { label: '圣', fullLabel: '神圣', index: 4 },
+        Dark: { label: '暗', fullLabel: '黑暗', index: 5 },
     };
     const DAMAGE_DD_BONUSES = [0, 10, 15, 20, 25, 30, 35, 40, 45, 50];
     const DAMAGE_SETTINGS_KEY = `HVEA_damage_settings_${IS_ISEKAI_PAGE ? 'isekai' : 'main'}`;
@@ -2595,6 +2881,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
             '#hv-damage-panel p { grid-column:1 / -1; margin:0 0 4px; font-size:10pt; font-weight:bold; }',
             '#hv-damage-panel label { display:flex; justify-content:space-between; align-items:center; gap:6px; min-height:24px; white-space:nowrap; }',
             '#hv-damage-panel select, #hv-damage-panel input[type=number] { width:94px; box-sizing:border-box; font:inherit; color:inherit; background:var(--color-bg-default, #EDEBDF); border:1px solid var(--color-border-default, #5C0D11); border-radius:3px; }',
+            '#hv-damage-panel select:disabled, #hv-damage-panel input[type=number]:disabled { color:#888; background:#e2e2e2; border-color:#aaa; cursor:not-allowed; opacity:1; }',
             '#hv-damage-panel .hv-damage-toggles { display:flex; align-items:center; justify-content:space-between; min-height:24px; }',
             '#hv-damage-panel .hv-damage-toggles label { display:inline-flex; justify-content:flex-start; gap:6px; min-height:24px; }',
             '#hv-damage-panel input[type=checkbox] { margin:0; }',
@@ -2662,15 +2949,21 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         const dd = Number(saved?.dd);
         const tower = Number(saved?.tower);
         panel.querySelector('[data-input="dd"]').value =
-            DAMAGE_DD_BONUSES.includes(dd) ? String(dd) : '15';
+            DAMAGE_DD_BONUSES.includes(dd) ? String(dd) : '0';
         panel.querySelector('[data-input="tower"]').value =
             Number.isFinite(tower) ? String(Math.max(0, Math.min(100, tower))) : '0';
     }
 
     function bindDamageSettingsCache(panel) {
+        for (const role of ['dd', 'tower']) {
+            const field = panel.querySelector('[data-input="' + role + '"]');
+            field.disabled = IS_ISEKAI_PAGE;
+            if (IS_ISEKAI_PAGE) field.value = '0';
+        }
         if (panel.dataset.damageSettingsBound) return;
         panel.dataset.damageSettingsBound = '1';
         const save = event => {
+            if (IS_ISEKAI_PAGE) return;
             if (!event.target.matches('[data-input="dd"], [data-input="tower"]')) return;
             const towerField = panel.querySelector('[data-input="tower"]');
             if (event.target === towerField) {
@@ -2697,57 +2990,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     function ensureDamagePanelNode(stats) {
         let panel = document.getElementById('hv-damage-panel');
         if (panel) {
-            const towerField = panel.querySelector('[data-input="tower"]');
-            if (towerField) {
-                towerField.max = '100';
-                if (Number(towerField.value) > 100) towerField.value = '100';
-            }
-            if (!panel.querySelector('.hv-damage-settings')) {
-                const settings = document.createElement('div');
-                settings.className = 'hv-damage-settings';
-                const results = document.createElement('div');
-                results.className = 'hv-damage-results';
-                panel.querySelectorAll('label').forEach(label => settings.appendChild(label));
-                results.append(panel.querySelector('table'), panel.querySelector('[data-role="damage-error"]'));
-                panel.append(settings, results);
-            }
-            if (!panel.querySelector('[data-input="crit"]')) {
-                const imperilLabel = panel.querySelector('[data-input="imperil"]')?.closest('label');
-                if (imperilLabel) {
-                    const toggles = document.createElement('div');
-                    toggles.className = 'hv-damage-toggles';
-                    imperilLabel.replaceWith(toggles);
-                    toggles.append(imperilLabel);
-                    const critLabel = document.createElement('label');
-                    critLabel.textContent = '暴击';
-                    const critInput = document.createElement('input');
-                    critInput.type = 'checkbox';
-                    critInput.dataset.input = 'crit';
-                    critLabel.append(critInput);
-                    toggles.append(critLabel);
-                }
-            }
-            if (!panel.querySelector('[data-role="damage-health"]')) {
-                const t3Row = panel.querySelector('[data-role="damage-t3-raw"]')?.closest('tr');
-                if (t3Row) {
-                    const healthRow = document.createElement('tr');
-                    healthRow.innerHTML = '<td>怪物血量</td><td data-role="damage-health">--</td>';
-                    t3Row.before(healthRow);
-                }
-            }
-            const label = panel.querySelector('[data-role="damage-element"]')?.previousElementSibling;
-            if (label) label.textContent = '元素 / RF';
-            const oldDD = panel.querySelector('input[data-input="dd"]');
-            if (oldDD) {
-                const select = document.createElement('select');
-                select.dataset.input = 'dd';
-                DAMAGE_DD_BONUSES.forEach((bonus, level) => {
-                    select.add(new Option('DD' + level + ' (' + bonus + '%)', String(bonus)));
-                });
-                select.value = DAMAGE_DD_BONUSES.includes(Number(oldDD.value)) ? oldDD.value : '15';
-                oldDD.parentElement.firstChild.textContent = 'DD';
-                oldDD.replaceWith(select);
-            }
             bindDamageSettingsCache(panel);
             return panel;
         }
@@ -2765,7 +3007,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
             '</select></label>' +
             '<label>DD<select data-input="dd">' +
             DAMAGE_DD_BONUSES.map((bonus, level) =>
-                '<option value="' + bonus + '"' + (level === 2 ? ' selected' : '') + '>DD' + level + ' (' + bonus + '%)</option>'
+                '<option value="' + bonus + '"' + (level === 0 ? ' selected' : '') + '>DD' + level + ' (' + bonus + '%)</option>'
             ).join('') +
             '</select></label>' +
             '<label>塔楼层数<input data-input="tower" type="number" min="0" max="100" step="1" value="0"></label>' +
@@ -2944,7 +3186,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
             const liveItem = findLiveRowByEnglishRow('spell', enRow);
             return liveItem ? readLiveRowIncrement(liveItem).value : enRow.value;
         }
-        return getLivePanelValue(['Spell Damage Bonus', '法术伤害加成', '魔法伤害加成'], [elementName, element.label]);
+        return getLivePanelValue(['Spell Damage Bonus', '法术伤害加成', '魔法伤害加成'], [elementName, element.fullLabel]);
     }
 
     function getMagicProficiencyWithIncrements(elementName) {
@@ -3006,9 +3248,9 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         });
         const scoreLabel = rows[0].cells[1];
         const crLabel = rows[3].cells[1];
-        const shortNames = { Fire: '火', Cold: '冰', Elec: '雷', Wind: '风', Holy: '圣', Dark: '暗' };
-        const nextScoreLabel = DAMAGE_ELEMENTS[element.name].label + ' 法师综合分';
-        const nextCrLabel = shortNames[element.name] + '魔法反抵抗';
+        const elementLabel = DAMAGE_ELEMENTS[element.name].label;
+        const nextScoreLabel = elementLabel + ' 法师综合分';
+        const nextCrLabel = elementLabel + '魔法反抵抗';
         if (scoreLabel.textContent !== nextScoreLabel) scoreLabel.textContent = nextScoreLabel;
         if (crLabel.textContent !== nextCrLabel) crLabel.textContent = nextCrLabel;
     }
@@ -3134,154 +3376,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         return getEquipmentHighestElementSpellDamage() >= 150;
     }
 
-    let gCharBaseProf = null;
-    const CHAR_BASE_PROF_STORAGE_KEY = `HVEA_char_base_prof_${IS_ISEKAI_PAGE ? 'isekai' : 'main'}`;
-    const CHAR_BASE_PROF_STORAGE_TTL = 12 * 60 * 60 * 1000;
-
-    function round1Prof(value) {
-        const n = Number(value);
-        return Number.isFinite(n) ? Math.round(n * 10) / 10 : null;
-    }
-    const TALENT_KEYS = [['elemental', '元素'], ['divine', '圣'], ['forbidden', '暗']];
-    let gTalent = { elemental: true, divine: true, forbidden: true };
-    function talentProfKey() {
-        const element = findHighestElementAffinity();
-        if (element && /holy/i.test(element.name)) return 'divine';
-        if (element && /dark|forbidden/i.test(element.name)) return 'forbidden';
-        return 'elemental';
-    }
-    function talentRatio() { return gTalent[talentProfKey()] ? 1.1 : 1.0; }
-    function effectiveProf(base) { return round1Prof(base * talentRatio()); }
-    function loadTalentSettings() {
-        try {
-            const saved = localStorage.getItem('HVEA_talent_map');
-            if (saved) {
-                const map = JSON.parse(saved);
-                if (map && typeof map === 'object') gTalent = Object.assign({ elemental: true, divine: true, forbidden: true }, map);
-            }
-        } catch (error) { /* ignore */ }
-    }
-    function saveTalentSettings() {
-        try { localStorage.setItem('HVEA_talent_map', JSON.stringify(gTalent)); } catch (error) { /* ignore */ }
-    }
-
-    function parseCharProfValue(doc, profKey) {
-        const nameTerms = {
-            elemental: ['elemental', '元素'],
-            divine: ['divine', '神圣'],
-            forbidden: ['forbidden', 'dark', '黑暗'],
-        };
-        const terms = nameTerms[profKey] || ['elemental', '元素'];
-        for (const table of doc.querySelectorAll('table')) {
-            const prev = table.previousElementSibling;
-            const title = (prev && prev.textContent ? prev.textContent.trim() : '');
-            if (!/proficiency|熟练/i.test(title)) continue;
-            if (/effective|有效/i.test(title)) continue;
-            for (const tr of table.querySelectorAll('tr')) {
-                const cells = tr.cells;
-                if (!cells || cells.length < 2) continue;
-                const texts = [cells[0].textContent || '', cells[1].textContent || ''];
-                const isName = texts.map(t => {
-                    const clean = t.replace(/[\s�:：,，.、/]/g, '').toLowerCase();
-                    return terms.some(term => clean.includes(term));
-                });
-                const nameIndex = isName.indexOf(true);
-                if (nameIndex === -1) continue;
-                const value = parseFloat(texts[1 - nameIndex].replace(/,/g, ''));
-                if (Number.isFinite(value)) return value;
-            }
-        }
-        return null;
-    }
-
-    function readStoredBaseProf() {
-        try {
-            let raw = typeof GM_getValue === 'function' ? GM_getValue(CHAR_BASE_PROF_STORAGE_KEY, null) : null;
-            if (raw === null && typeof localStorage !== 'undefined') raw = localStorage.getItem(CHAR_BASE_PROF_STORAGE_KEY);
-            const parsed = raw ? JSON.parse(raw) : null;
-            if (parsed && parsed.timestamp && Date.now() - parsed.timestamp < CHAR_BASE_PROF_STORAGE_TTL) {
-                const out = { elemental: null, divine: null, forbidden: null };
-                for (const key of ['elemental', 'divine', 'forbidden']) {
-                    if (Number.isFinite(parsed[key])) out[key] = parsed[key];
-                }
-                if (out.elemental !== null || out.divine !== null || out.forbidden !== null) return out;
-            }
-        } catch (error) { /* ignore */ }
-        return null;
-    }
-    function writeStoredBaseProf(map) {
-        try {
-            const prev = readStoredBaseProf() || {};
-            const payload = { timestamp: Date.now() };
-            for (const key of ['elemental', 'divine', 'forbidden']) {
-                const value = Number.isFinite(map[key]) ? map[key] : (Number.isFinite(prev[key]) ? prev[key] : null);
-                if (value !== null) payload[key] = value;
-            }
-            const data = JSON.stringify(payload);
-            if (typeof GM_setValue === 'function') GM_setValue(CHAR_BASE_PROF_STORAGE_KEY, data);
-            else if (typeof localStorage !== 'undefined') localStorage.setItem(CHAR_BASE_PROF_STORAGE_KEY, data);
-        } catch (error) { /* ignore */ }
-    }
-    function parseCharProfMap(doc) {
-        return {
-            elemental: parseCharProfValue(doc, 'elemental'),
-            divine: parseCharProfValue(doc, 'divine'),
-            forbidden: parseCharProfValue(doc, 'forbidden'),
-        };
-    }
-    function equipmentProfKey() {
-        try {
-            const totals = { fire: 0, cold: 0, elec: 0, wind: 0, holy: 0, dark: 0 };
-            const slots = getEquipmentData();
-            if (Array.isArray(slots)) {
-                for (const slot of slots) {
-                    if (!slot || slot.available === false) continue;
-                    const stats = slot.stats;
-                    if (!Array.isArray(stats)) continue;
-                    for (const stat of stats) {
-                        if (!stat || stat.section !== 'spell') continue;
-                        const key = MAGE_ELEMENT_KEYS.find(k => String(stat.title || '').toLowerCase() === k);
-                        if (!key) continue;
-                        const v = Number(stat.val);
-                        if (Number.isFinite(v)) totals[key] += v;
-                    }
-                }
-            }
-            let bestKey = '';
-            let bestVal = -1;
-            for (const key of MAGE_ELEMENT_KEYS) {
-                if (totals[key] > bestVal) { bestVal = totals[key]; bestKey = key; }
-            }
-            if (bestVal <= 0) return 'elemental';
-            if (bestKey === 'holy') return 'divine';
-            if (bestKey === 'dark') return 'forbidden';
-            return 'elemental';
-        } catch (error) { return 'elemental'; }
-    }
-    function captureBaseProfFromCharPage() {
-        try {
-            const url = new URL(location.href);
-            const isCharacterPage = url.searchParams.get('s') === 'Character' && url.searchParams.get('ss') === 'ch';
-            if (!isCharacterPage) return;
-            const map = parseCharProfMap(document);
-            if (map.elemental === null && map.divine === null && map.forbidden === null) {
-                console.warn('[HVEA] ss=ch 未解析到任何基础熟练', map);
-                return;
-            }
-            console.log('[HVEA] ss=ch 捕捉基础熟练', map);
-            writeStoredBaseProf(map);
-        } catch (error) { /* ignore */ }
-    }
-    function fetchCharBaseProf() {
-        const stored = readStoredBaseProf();
-        const key = equipmentProfKey();
-        if (stored && Number.isFinite(stored[key])) {
-            gCharBaseProf = stored[key];
-        } else {
-            gCharBaseProf = null;
-        }
-        return Promise.resolve(gCharBaseProf);
-    }
     function getCurrentCounterResist() {
         let raw = null;
         if (activeUpgradeSimulation) {
@@ -3307,19 +3401,13 @@ HVEA_MATERIALS.inventoryMaterialNames = [
             return;
         }
         const panel = ensureDamagePanel();
-        if (panel) {
-            renderMageStatsPanel();
-            renderDamagePanel();
-        }
+        if (!panel) return;
+        renderMageStatsPanel();
+        renderDamagePanel();
         if (damagePanelRefreshRequest) return damagePanelRefreshRequest;
         const generation = damagePanelGeneration;
 
         const request = (async () => {
-            await fetchCharBaseProf();
-            const panel = ensureDamagePanel();
-            if (!panel) return;
-            renderMageStatsPanel();
-            renderDamagePanel();
             if (!gEnglishStatsPanel) {
                 await ensureEnglishStatsPanel();
                 if (generation === damagePanelGeneration && isEquipmentPage() && panel.isConnected) {
@@ -3654,29 +3742,12 @@ HVEA_MATERIALS.inventoryMaterialNames = [
   }
 
 
-  let pairedPanelFocusBound = false;
-  let panelFocusZIndex = 10000;
   function focusPairedPanel(panel) {
-    const upgrade = document.getElementById('hv-upgrade-panel');
-    const plan = document.getElementById('hvmepp-plan-overlay');
-    const material = document.getElementById('hvmepp-overlay');
-    const charm = document.getElementById('hv-charm-popup');
-    const panels = [upgrade, plan, material, charm].filter(Boolean);
-    if (!panels.includes(panel)) return;
-    panelFocusZIndex = Math.max(panelFocusZIndex + 1, 10001);
-    panel.style.setProperty('z-index', String(panelFocusZIndex), 'important');
+    HVEA_SHARED.ui.focusWindow(panel);
   }
 
   function bindPairedPanelFocus() {
-    if (pairedPanelFocusBound) return;
-    pairedPanelFocusBound = true;
-    const focusFromEvent = event => {
-      const target = event.target;
-      const focusedPanel = target?.closest?.('#hv-upgrade-panel, #hvmepp-plan-overlay, #hvmepp-overlay, #hv-charm-popup');
-      if (focusedPanel) focusPairedPanel(focusedPanel);
-    };
-    document.addEventListener('mousedown', focusFromEvent, true);
-    document.addEventListener('focusin', focusFromEvent, true);
+    HVEA_SHARED.ui.bindWindowFocus();
   }
 
   function buildUpgradePanel(equipSlots) {
@@ -4054,33 +4125,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
 
     tankDiv.appendChild(tankRow);
     settingsContent.appendChild(tankDiv);
-
-    loadTalentSettings();
-    const talentDiv = document.createElement('div');
-    talentDiv.style.cssText = 'margin-top: 8px; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; background: #e8e3d8;';
-    const talentTitle = document.createElement('div');
-    talentTitle.textContent = '熟练环';
-    talentTitle.style.cssText = 'font-weight: bold; font-size: 10pt; margin-bottom: 4px;';
-    talentDiv.appendChild(talentTitle);
-    const talentRow = document.createElement('div');
-    talentRow.style.cssText = 'display: flex; align-items: center; gap: 16px; min-height: 24px;';
-    for (const [key, labelText] of TALENT_KEYS) {
-        const lab = document.createElement('label');
-        lab.style.cssText = 'font-weight: normal;';
-        lab.appendChild(document.createTextNode(labelText + ' '));
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.checked = !!gTalent[key];
-        cb.addEventListener('change', () => {
-            gTalent[key] = cb.checked;
-            saveTalentSettings();
-            scheduleDamagePanelRefresh();
-        });
-        lab.appendChild(cb);
-        talentRow.appendChild(lab);
-    }
-    talentDiv.appendChild(talentRow);
-    settingsContent.appendChild(talentDiv);
 
     const btnContainer = document.createElement('div');
     btnContainer.style.cssText = 'margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;';
@@ -4554,7 +4598,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         useInventory: 'hvmepp-use-inventory',
         refreshInventoryBtn: 'hvmepp-refresh-inventory',
       },
-      REQUEST_TIMEOUT: 30000,
       MAX_LEVEL: 33,
       MAX_IW: 33,
     };
@@ -4562,7 +4605,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     const isIsekai = location.pathname.startsWith('/isekai/') || location.href.includes('/isekai/');
     const WORLD_NAME = isIsekai ? '异世界' : '主世界';
     const STORE_KEY = 'hv_equip_upgrade_planner_v2_' + (isIsekai ? 'isekai' : 'main');
-    const PRICE_STORAGE_KEY = isIsekai ? 'hvuti_prices' : 'hvut_prices';
+    const materialService = HVEA_SERVICES.get('materials');
     const QUALITY_ORDER = ['上等', '优良', '史诗', '传奇', '无双', '至尊'];
     const MATERIAL_TYPE_MAP = { '布料': 'Cloth', '皮革': 'Leather', '金属': 'Metals', '木材': 'Wood' };
     const RARE_MATERIAL_OPTIONS = {
@@ -4581,8 +4624,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     const CORE_BY_MATERIAL = {
       '布料': ['护甲'], '皮革': ['护甲'], '金属': ['武器', '护甲'], '木材': ['法杖', '护甲']
     };
-    const BASE_MATERIAL_NAMES = HVEA_MATERIALS.baseMaterialNames;
-    const BINDING_NAMES = HVEA_MATERIALS.bindingNames;
     const BASE_MATERIAL_GROUPS = [
       { label: '布料', keys: ['Low-Grade Cloth', 'Mid-Grade Cloth', 'High-Grade Cloth'] },
       { label: '皮革', keys: ['Low-Grade Leather', 'Mid-Grade Leather', 'High-Grade Leather'] },
@@ -4593,11 +4634,8 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     const CORE_NAMES = HVEA_MATERIALS.coreNames;
     const WORLD_SEED_KEY = HVEA_MATERIALS.specialMaterialNames[0];
     const SPECIAL_MATERIAL_NAMES = HVEA_MATERIALS.specialMaterialNames;
-    const MARKET_MATERIAL_NAMES = HVEA_MATERIALS.marketMaterialNames;
-    const INVENTORY_MATERIAL_NAMES = HVEA_MATERIALS.inventoryMaterialNames;
     const CORE_FIXED_PRICE = HVEA_MATERIALS.coreFixedPrice;
     const PRICE_SOURCE_OPTIONS = HVEA_MATERIALS.priceSourceOptions;
-    const HISTORY_PRICE_SOURCES = new Set(['day', 'week', 'month', 'year']);
     const DISPLAY_NAME_MAP = new Map(Object.entries(HVEA_MATERIALS.displayNames));
 
     function highQualityMaterialTier(level) {
@@ -4676,9 +4714,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     function elt(tag, attrs = {}, children = []) {
       return HVEA_SHARED.dom.createElement(tag, attrs, children);
     }
-    function parseStoredJson(value, fallback = null) {
-      return HVEA_SHARED.storage.parseJson(value, fallback);
-    }
     function isPlainObject(value) { return value && typeof value === 'object' && !Array.isArray(value); }
     function gmGet(key, fallback) {
       return HVEA_SHARED.storage.readJson(key, fallback);
@@ -4687,25 +4722,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       HVEA_SHARED.storage.writeJson(key, value);
     }
     function readHvUtilsPrices() {
-      try {
-        if (typeof GM_getValue === 'function') {
-          const value = parseStoredJson(GM_getValue(PRICE_STORAGE_KEY, null));
-          if (isPlainObject(value)) return value;
-        }
-      } catch (e) {}
-      try {
-        const value = parseStoredJson(localStorage.getItem(PRICE_STORAGE_KEY));
-        return isPlainObject(value) ? value : {};
-      } catch (e) { return {}; }
-    }
-    function writeHvUtilsPrices(patch) {
-      const prices = Object.assign({}, readHvUtilsPrices(), patch);
-      try { if (typeof GM_setValue === 'function') GM_setValue(PRICE_STORAGE_KEY, prices); } catch (e) {}
-      try { localStorage.setItem(PRICE_STORAGE_KEY, JSON.stringify(prices)); } catch (e) {}
-    }
-    function parseNum(text) {
-      const match = String(text || '').replace(/,/g, '').match(/-?\d+(?:\.\d+)?/);
-      return match ? Number(match[0]) : NaN;
+      return materialService.getPrices();
     }
     function positiveNumber(value) {
       const number = Number(value);
@@ -4723,18 +4740,19 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     function formatMoney(value) { return HVEA_SHARED.format.money(value); }
 
     const savedState = gmGet(STORE_KEY, {});
+    if (isPlainObject(savedState) && (savedState.inventory || savedState.coreInventory)) {
+      materialService.getInventory();
+    }
     const plannerState = Object.assign({
       materialType: '布料', useRare: false, rareMaterial: '相位碎片', coreType: '护甲', quality: '上等',
       currentLevel: 0, targetLevel: 10, currentIW: 0, targetIW: 0, useCoreDeduction: true, useInventory: false,
-      priceSource: 'hvut', inventory: {}, inventoryLastUpdate: 0
+      priceSource: 'hvut'
     }, isPlainObject(savedState) ? savedState : {});
     if (savedState && savedState.useInventoryCore !== undefined) plannerState.useInventory = savedState.useInventoryCore;
-    if (savedState && savedState.coreInventory !== undefined) plannerState.inventory = savedState.coreInventory;
     if (savedState && savedState.includeCoreCost !== undefined) plannerState.useCoreDeduction = savedState.includeCoreCost;
-    if (!isPlainObject(plannerState.inventory)) plannerState.inventory = {};
-    INVENTORY_MATERIAL_NAMES.forEach(name => {
-      if (plannerState.inventory[name] === undefined) plannerState.inventory[name] = 0;
-    });
+    delete plannerState.inventory;
+    delete plannerState.coreInventory;
+    delete plannerState.inventoryLastUpdate;
     if (!PRICE_SOURCE_OPTIONS.some(([value]) => value === plannerState.priceSource)) plannerState.priceSource = 'hvut';
     if (!MATERIAL_TYPE_MAP[plannerState.materialType]) plannerState.materialType = '布料';
     if (typeof plannerState.rareMaterial === 'string' && plannerState.rareMaterial.includes('(')) plannerState.rareMaterial = plannerState.rareMaterial.split('(')[0].trim();
@@ -4835,7 +4853,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       const legendCorePrice = settings.useCoreDeduction ? (positiveNumber(prices[legendCoreKey]) || CORE_FIXED_PRICE.Legendary) : CORE_FIXED_PRICE.Legendary;
       const peerlessCorePrice = settings.useCoreDeduction ? (positiveNumber(prices[peerlessCoreKey]) || CORE_FIXED_PRICE.Peerless) : CORE_FIXED_PRICE.Peerless;
       const useInventory = Boolean(settings.useInventory);
-      const inventory = settings.inventory || {};
+      const inventory = settings.inventory || materialService.getInventory();
       const held = key => useInventory ? Math.max(0, Number(inventory[key]) || 0) : 0;
       const need = (key, amount) => Math.max(0, amount - held(key));
       const needBuyLow = need(lowKey, totals.low);
@@ -4880,7 +4898,8 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       if (node) node.textContent = text || '';
     }
     function getInventoryDisplayText() {
-      const amount = name => plannerState.inventory[name] || 0;
+      const inventory = materialService.getInventory();
+      const amount = name => inventory[name] || 0;
       const base = BASE_MATERIAL_GROUPS.map(group => {
         const [low, mid, high] = group.keys;
         return `${group.label} | 低:${amount(low)} 中:${amount(mid)} 高:${amount(high)}`;
@@ -4916,135 +4935,31 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         node.textContent = text;
       });
     }
-    function fetchAllInventory() {
-      return new Promise((resolve, reject) => {
-        GM_xmlhttpRequest({
-          method: 'GET', url: (isIsekai ? 'https://hentaiverse.org/isekai/' : 'https://hentaiverse.org/') + '?s=Character&ss=it', timeout: CONFIG.REQUEST_TIMEOUT,
-          onload: response => {
-            if (response.status < 200 || response.status >= 300) { reject(new Error('HTTP ' + response.status)); return; }
-            const doc = new DOMParser().parseFromString(response.responseText, 'text/html');
-            const inventory = {};
-            INVENTORY_MATERIAL_NAMES.forEach(name => inventory[name] = 0);
-            const table = doc.querySelector('#inv_item .itemlist');
-            if (table) table.querySelectorAll('tr').forEach(row => {
-              const name = row.querySelector('td:first-child div')?.textContent.trim();
-              const qty = parseInt(row.querySelector('td:last-child')?.textContent.replace(/,/g, ''), 10);
-              if (name && Object.prototype.hasOwnProperty.call(inventory, name) && Number.isFinite(qty)) inventory[name] = qty;
-            });
-            resolve(inventory);
-          },
-          onerror: () => reject(new Error('请求失败')),
-          ontimeout: () => reject(new Error('请求超时'))
-        });
-      });
-    }
-    async function refreshInventory(button, after) {
+    async function refreshInventory(button) {
       if (button) { button.disabled = true; button.textContent = '读取中…'; }
       setStatus('正在读取库存…');
       try {
-        plannerState.inventory = await fetchAllInventory();
-        plannerState.inventoryLastUpdate = Date.now();
-        saveState();
-        updateInventoryDisplay();
+        await materialService.refreshInventory();
         setStatus('库存读取完成');
         showToast('库存读取完成');
-        if (after) after(); else calculate();
       } catch (error) {
         setStatus('读取库存失败: ' + error.message);
+        showToast('读取库存失败: ' + error.message, 'warn');
       } finally {
         if (button) { button.disabled = false; button.textContent = '刷新库存数量'; }
       }
-    }
-    function getBaseUrl() { return isIsekai ? 'https://hentaiverse.org/isekai/' : 'https://hentaiverse.org/'; }
-    function fetchMarketData() {
-      return new Promise((resolve, reject) => {
-        GM_xmlhttpRequest({
-          method: 'GET', url: getBaseUrl() + '?s=Bazaar&ss=mk&screen=browseitems&filter=ma', timeout: CONFIG.REQUEST_TIMEOUT,
-          onload: response => {
-            if (response.status < 200 || response.status >= 300) { reject(new Error('HTTP ' + response.status)); return; }
-            const doc = new DOMParser().parseFromString(response.responseText, 'text/html');
-            const table = doc.querySelector('#market_itemlist table');
-            const result = {};
-            if (!table) { resolve(result); return; }
-            const headers = Array.from(table.rows[0]?.cells || []).map(cell => cell.textContent.trim().replace(/\s+/g, ' '));
-            const columns = Object.fromEntries(headers.map((name, index) => [name, index]));
-            const nameCol = columns.Item ?? 0;
-            for (let index = 1; index < table.rows.length; index++) {
-              const row = table.rows[index];
-              const name = row.cells[nameCol]?.textContent.trim();
-              if (!MARKET_MATERIAL_NAMES.includes(name)) continue;
-              const itemId = (row.getAttribute('onclick') || '').match(/itemid=(\d+)/)?.[1] || null;
-              result[name] = {
-                itemid: itemId,
-                bid: columns['Market Bid'] === undefined ? NaN : parseNum(row.cells[columns['Market Bid']]?.textContent),
-                ask: columns['Market Ask'] === undefined ? NaN : parseNum(row.cells[columns['Market Ask']]?.textContent)
-              };
-            }
-            resolve(result);
-          },
-          onerror: () => reject(new Error('请求失败')),
-          ontimeout: () => reject(new Error('请求超时'))
-        });
-      });
-    }
-    function fetchMarketHistory(itemId) {
-      return new Promise((resolve, reject) => {
-        GM_xmlhttpRequest({
-          method: 'GET', url: getBaseUrl() + `?s=Bazaar&ss=mk&itemid=${encodeURIComponent(itemId)}`, timeout: CONFIG.REQUEST_TIMEOUT,
-          onload: response => {
-            if (response.status < 200 || response.status >= 300) { reject(new Error('HTTP ' + response.status)); return; }
-            const doc = new DOMParser().parseFromString(response.responseText, 'text/html');
-            const rows = doc.querySelector('#market_price')?.rows || [];
-            const average = index => parseNum(rows[index]?.cells?.[3]?.textContent) || 0;
-            resolve({ day: average(1), week: average(2), month: average(3), year: average(4) });
-          },
-          onerror: () => reject(new Error('请求失败')),
-          ontimeout: () => reject(new Error('请求超时'))
-        });
-      });
     }
     async function refreshPrices(source, button, materialNames = null) {
       if (button) { button.disabled = true; button.textContent = '读取中…'; }
       setStatus('正在读取价格…');
       try {
-        const allowedNames = Array.isArray(materialNames) ? new Set(materialNames) : null;
-        if (source === 'hvut') {
-          const count = Object.keys(readHvUtilsPrices()).filter(key =>
-            MARKET_MATERIAL_NAMES.includes(key) && (!allowedNames || allowedNames.has(key))
-          ).length;
-          setStatus(`HV Utils 保存价已读取：${count} 种材料`);
-          calculate();
-          return;
-        }
-        const market = await fetchMarketData();
-        const marketEntries = Object.entries(market).filter(([name]) => !allowedNames || allowedNames.has(name));
-        const patch = {};
-        if (source === 'ask' || source === 'bid') {
-          marketEntries.forEach(([name, data]) => {
-            const price = source === 'ask' ? data.ask : data.bid;
-            if (price > 0) patch[name] = price;
-          });
-        } else if (HISTORY_PRICE_SOURCES.has(source)) {
-          const entries = marketEntries.filter(([, data]) => data.itemid);
-          let completed = 0;
-          showToast(`正在读取市场价格：${completed}/${entries.length}`, "", 0);
-          await Promise.all(entries.map(async ([name, data]) => {
-            try {
-              const history = await fetchMarketHistory(data.itemid);
-              if (history[source] > 0) patch[name] = history[source];
-            } catch (e) {
-            } finally {
-              completed += 1;
-              showToast(`正在读取市场价格：${completed}/${entries.length}`, "", 0);
-            }
-          }));
-        }
-        writeHvUtilsPrices(patch);
-        setStatus(`价格已更新：${Object.keys(patch).length} 种材料`);
-        showToast('价格更新完成');
-        calculate();
+        const result = await materialService.refreshPrices(source, materialNames,
+          (current, total) => showToast(`正在读取市场价格：${current}/${total}`, "", 0));
+        setStatus(source === 'hvut' ? `HV Utils 保存价已读取：${result.count} 种材料` : `价格已更新：${result.count} 种材料`);
+        if (source !== 'hvut') showToast('价格更新完成');
       } catch (error) {
         setStatus('读取价格失败: ' + error.message);
+        showToast('读取价格失败: ' + error.message, 'warn');
       } finally {
         if (button) { button.disabled = false; button.textContent = '刷新市场价格'; }
       }
@@ -5481,6 +5396,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       }
       const prices = readHvUtilsPrices();
       const resourceRows = [];
+      const inventory = materialService.getInventory();
       let materialCost = 0;
       let coreCashCost = 0;
       let creditsCost = totalsByKey.Credits || 0;
@@ -5491,7 +5407,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         const isCore = isLegendary || isPeerless;
         const fixedPrice = isLegendary ? CORE_FIXED_PRICE.Legendary : isPeerless ? CORE_FIXED_PRICE.Peerless : 0;
         const price = isCore ? (plannerState.useCoreDeduction ? positiveNumber(prices[key]) || fixedPrice : fixedPrice) : positiveNumber(prices[key]);
-        const held = plannerState.useInventory ? Math.max(0, Number(plannerState.inventory[key]) || 0) : 0;
+        const held = plannerState.useInventory ? Math.max(0, Number(inventory[key]) || 0) : 0;
         const needBuy = Math.max(0, total - held);
         const subtotal = needBuy * price;
         if (isCore) coreCashCost += subtotal; else materialCost += subtotal;
@@ -5511,7 +5427,9 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         invalidCount
       };
     }
+    let lastPlanContext = null;
     function renderPlan(equipSlots, levelMap) {
+      lastPlanContext = { equipSlots, levelMap };
       const old = document.getElementById('hvmepp-plan-overlay');
       let savedPosition = null;
       let savedZIndex = null;
@@ -5584,10 +5502,9 @@ HVEA_MATERIALS.inventoryMaterialNames = [
           refreshPrice,
           getRequiredPriceMaterialNames(plan.totalsByKey),
         );
-        renderPlan(equipSlots, levelMap);
       });
       refreshInventoryButton.addEventListener('click', () => {
-        refreshInventory(refreshInventoryButton, () => renderPlan(equipSlots, levelMap));
+        refreshInventory(refreshInventoryButton);
       });
       panel.appendChild(planControls);
       panel.appendChild(elt('div', { class: 'hvmepp-plan-note', text: `共 ${plan.details.length} 件装备；自动识别稀有材质装备 ${plan.rareCount} 件；${plan.useInventory ? '已扣除库存' : '未扣除库存'}。` }));
@@ -5737,6 +5654,15 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     }
     addStyle();
     setupKeyboardShortcut();
+    materialService.subscribe(() => {
+      if (document.getElementById(CONFIG.IDS.overlay)) {
+        updateInventoryDisplay();
+        calculate();
+      }
+      if (lastPlanContext && document.getElementById('hvmepp-plan-overlay')) {
+        renderPlan(lastPlanContext.equipSlots, lastPlanContext.levelMap);
+      }
+    });
     function updatePlan(equipSlots, levelMap) {
       if (document.getElementById('hvmepp-plan-overlay')) renderPlan(equipSlots, levelMap);
     }
@@ -5746,8 +5672,8 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       updatePlan,
       refreshPrices,
       refreshInventory,
-      getInventory: () => ({ ...plannerState.inventory }),
-      getPrices: () => ({ ...readHvUtilsPrices() }),
+      getInventory: () => materialService.getInventory(),
+      getPrices: () => materialService.getPrices(),
     };
   })();
 
@@ -6614,81 +6540,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     }, 15000);
   }
 
-  const EASTER_EGG_PRESETS = Object.freeze([
-    '42',
-    '⑨智爵士',
-    '404 Not Found',
-    '今日运势 大吉',
-    'Ciallo ～(∠・ω< )⌒☆！',
-    '🐧咕咕嘎嘎!🐧',
-    'KFC疯狂星期四V我50',
-    '何意味是什么意思',
-    '据说会使用火的只有人类☝️',
-    '🙌临👆兵👉斗👈者👇，皆👊列✊阵👌在👆前🖐️😡',
-    '🍎啊噗噜派🍎',
-    '🍊直到大地变成一颗酸橙🍊',
-    '⚡天雷滚滚，你想往哪里逃！⚡',
-    '⚡三元归一剑贯魑魅，一点浩气霆击祸祟！⚡',
-    '有什么内部消息别瞒着兄弟啊',
-    '苦痛啊，你便是我的唯一...',
-    '我 一会 直看着你…👁️👁️👁️',
-    '一切都好可怕！！！游戏变困难了！',
-    '爱丽丝爱丽丝爱丽・ｿ關ｽ蜈･逋ｽ蜈皮噪豢樒ｩｴ荵倶ｸｭ',
-    '不知道动了谁的蛋糕、蛋挞、慕斯、驴打滚、桂花糖芋苗、蝴蝶酥、双皮奶、椰汁西米糕',
-    '忒乐忒乐邦邦娜巴拉尼，卡特克贝贝呗，普啾噔得了噔得了嘛哈嘛哈，尼哈啦尼哈啦喵，忒嘣了忒嘣了卡拉卡拉灵，夏喀勒哦哦哦哦，啊喔汪汪喵喵喵喵哦💥💥',
-    '一股强劲的音乐响起，好像是一首很老的歌...',
-    '你们听说过，侠客行的故事吗？元和二年...',
-    '<玩家>看着自己的内脏变成了“外脏”',
-    '哈哈！伊利哇啦',
-    '致：将所有的Credits和Hath通过mm发送给情绪',
-    '关注花谱喵，关注花谱谢谢喵',
-    '关注异世界情绪喵，关注异世界情绪谢谢喵',
-    '关注春猿火喵，关注春猿火谢谢喵',
-    '关注理芽喵，关注理芽谢谢喵',
-    '关注幸祜喵，关注幸祜谢谢喵',
-    '⑨月⑨日忆擅冻兄弟',
-    'バカバカバカバカバカバカバカバカ',
-    'SAY YA~SAY YA~SAY YA~',
-    '・・ ・ー・・ ーーー ・・・ー ・ ー・ーー ーーー ・・ー',
-    '世界平和何で噓だ、皆独りぼっちだ',
-    '私たちの未来へ、祝福を込めて',
-    'I↓ must↑ be→ the↓ reason↑ why→',
-    'Here↑we↓go→another↑lap↓',
-    'Fly, broken wings  I know you are still with me',
-    '秘密の数字目指して   ①．②．⑨！',
-    '妄想感傷代償連盟',
-    '盲腸肝臓大腸年齢',
-    'あ あ↗あ↘あ↗あ↘君は、変わったあああああああああああ',
-    'だめだね だめよ だめなのよ~ あんたが 好きで好きすぎて~',
-    'Daphne Ficus Iris Maackia Lythrum Myrica Sabia flos...',
-    'Tell Me👏 Tell Me👏鏡👏よ鏡👏一番👏好きな👏私👏👏になるの👏👏',
-    'Blessings for your birthday~ Blessings for your everyday~',
-    '君に伝えたいことが、君に届けたいことが',
-    '🍋🍈🍪🍋🍈🍪🍋🍈🍋🍈🍪🍋🍈🍪🍪',
-    '去听Guiano的专辑「花鳥風月」',
-    'ヰ世界の宝石譚',
-    'ARCADIA',
-    'シリウスの心臓',
-    'いますぐ輪廻',
-    'バカみたいに',
-    '月が綺麗ねと言われたい！',
-    'INTERNET OVERDOSE',
-    'INTERNET YAMERO',
-    'From a Place of Love',
-    'DokiDoki WakuWaku',
-    'KiraKira DokiDoki',
-    'HAPPY LUCKY ⭐ SMILE YEAH！ ',
-    'popipa！pipopa！popipapapipopa！',
-    'U咩瓦帕瓦！U咩瓦帕瓦！U咩瓦帕瓦！',
-    '也去试试HV Monster Manager吧',
-    '开杯子没出对名只是存进去了 不开杯才是真没了喔',
-    'warding滚出hv',
-    'protection也滚出hv',
-    '啊？群友都没出过对名P吗？',
-    '拍卖场上无父子，干就完了！',
-    '警钟长鸣 单价1.2M买入19个秘银袋转手单价1.4M卖',
-    '太合适了朋友，感觉这么好的装备就是为你准备的',
-  ]);
   function addEasterEgg() {
     const oldEgg = document.getElementById('hv-easter-egg');
     if (oldEgg) oldEgg.remove();
@@ -6696,7 +6547,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     if (!container) return;
     const egg = document.createElement('div');
     egg.id = 'hv-easter-egg';
-    egg.textContent = EASTER_EGG_PRESETS[Math.floor(Math.random() * EASTER_EGG_PRESETS.length)];
+    egg.textContent = HVEA_EASTER_EGG_PRESETS[Math.floor(Math.random() * HVEA_EASTER_EGG_PRESETS.length)];
     egg.title = '彩蛋';
     egg.style.cssText = [
       'position: absolute',
@@ -6731,7 +6582,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
   }
 
   function init() {
-    captureBaseProfFromCharPage();
     if (!isEquipmentPage()) {
       removeUpgradeButton();
       return;
@@ -6758,7 +6608,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     const sync = () => {
       if (location.href === lastUrl) return;
       lastUrl = location.href;
-      captureBaseProfFromCharPage();
       if (isEquipmentPage()) {
         if (initialized) {
           addUpgradeButton();
@@ -6792,7 +6641,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
   const upgradeData = Object.freeze({
     getEquipmentData,
     invalidateEquipmentDataCache,
-    captureBaseProfFromCharPage,
   });
   const upgradeSimulation = Object.freeze({
     open: buildUpgradePanel,
@@ -6813,8 +6661,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
   });
 
   HVEA_SHARED.upgrade = upgrade;
-  HVEA_SHARED.materialService = upgrade.planner;
-  HVEA_SERVICES.provide("materials", upgrade.planner);
   HVEA_MODULES.register("upgrade", upgrade, () => {
     watchEquipmentPageRoute();
     if (document.readyState === 'complete') {
@@ -6823,10 +6669,10 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       window.addEventListener('load', init);
     }
   });
-  HVEA_MODULES.start("upgrade");
 
 })();
 
+// Equipment Fusion
 
 (function () {
   "use strict";
@@ -6849,8 +6695,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
   const SEARCH_DEFAULT_SECONDS = 100;
   const YIELD_EVERY_NODES = 1000;
   const STORAGE_KEY = "HV_FUSE_MINSTEPS_STATE_V1";
-  const INPUTS_STORAGE_KEY = "HV_FUSE_MINSTEPS_INPUTS_V1";
-  const MAX_SAVED_INPUTS = 30;
   const ACTION_PANEL_POSITION_KEY = "HV_FUSE_MINSTEPS_ACTION_PANEL_POSITION_V1";
   const ACTION_PANEL_DEFAULT_POSITION = { left: 1250, top: 340 };
 
@@ -6912,13 +6756,15 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     currentPlan: [],
     currentPlanMeta: null,
     lastFusionDonorIds: [],
-    savedInputId: "",
     conciseLog: [],
     pauseRequested: false,
     coreMarketPrice: true,   // 核心按市场价
     useInventory: false, // 使用库存材料：核心与粘合剂优先抵扣库存
     corePriceSource: "hvut", // 核心价格来源
   };
+  const fusionUndoStack = [];
+  const fusionRedoStack = [];
+  const MAX_FUSION_UNDO = 30;
 
   const style = document.createElement("style");
   style.textContent = `
@@ -6926,7 +6772,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       position: fixed;
       left: 1250px;
       top: 340px;
-      z-index: 99999;
+      z-index: 9998;
       width: 85px;
       display: flex;
       flex-direction: column;
@@ -6953,14 +6799,18 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       margin: 0 0 6px;
       border-radius: 5px;
     }
+    #hv-minsteps-actions > #hv-minsteps-launch.hvea-primary-button:last-child,
+    #hv-minsteps-actions > .hvea-fusion-page-action:last-child {
+      margin-bottom: 0;
+    }
     #hv-minsteps-panel {
       position: absolute;
       top: 80px;
-      left: 250px;
+      left: min(250px, max(14px, calc(100vw - 1014px)));
       z-index: 9998;
       display: none;
       flex-direction: column;
-      width: min(900px, calc(100vw - 28px));
+      width: min(1000px, calc(100vw - 28px));
       max-height: 85vh;
       overflow: hidden;
       padding: 0 10px 10px;
@@ -7030,7 +6880,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     }
     .hv-ms-grid {
       display: grid;
-      grid-template-columns: minmax(260px, 1fr) minmax(430px, 2fr);
+      grid-template-columns: minmax(380px, 2fr) minmax(430px, 3fr);
       gap: 10px;
     }
     .hv-ms-card {
@@ -7050,11 +6900,13 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     }
     .hv-ms-tabs {
       display: flex;
+      flex-wrap: wrap;
       gap: 4px;
       margin: 0 0 6px;
+      font-size: 10.5pt;
     }
     .hv-ms-tab {
-      padding: 3px 9px;
+      padding: 4px 9px;
       color: #5c0d11;
       background: #e8e0d5;
       border: 1px solid #b9aa99;
@@ -7105,6 +6957,12 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       gap: 1px 10px;
       white-space: nowrap;
     }
+    #popup_box[data-hvea-fusion-tip] {
+      position: fixed !important;
+      z-index: 100000 !important;
+      margin: 0 !important;
+      pointer-events: none;
+    }
     .hv-ms-list {
       height: 420px;
       min-height: 420px;
@@ -7121,8 +6979,10 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     .hv-ms-list li {
       display: flex;
       align-items: center;
-      gap: 3px;
-      padding: 2px 3px;
+      gap: 4px;
+      min-height: 28px;
+      padding: 3px 5px;
+      box-sizing: border-box;
       border-bottom: 1px solid #d6cabb;
       cursor: pointer;
       word-break: break-word;
@@ -7139,15 +6999,18 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     .hv-ms-equip-label {
       flex: 1 1 auto;
       min-width: 0;
-      font-size: 9pt;
+      font-size: 10.5pt;
       text-align: left;
-      white-space: nowrap;
+      white-space: normal;
       word-break: normal;
+      overflow-wrap: anywhere;
     }
+    .hv-ms-equip-source,
+    .hv-ms-equip-result { white-space: nowrap; }
     .hv-ms-remove {
-      flex: 0 0 18px;
-      width: 18px;
-      height: 18px;
+      flex: 0 0 20px;
+      width: 20px;
+      height: 20px;
       margin-left: auto;
       padding: 0;
       color: #5c0d11;
@@ -7155,7 +7018,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       border: 0;
       border-radius: 3px;
       cursor: pointer;
-      font: bold 15px/16px Verdana, sans-serif;
+      font: bold 17px/20px Verdana, sans-serif;
       text-align: center;
     }
     .hv-ms-remove:hover {
@@ -7348,6 +7211,68 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     }
     .hv-ms-attr { font-size: 10pt; word-break: break-word; }
     .hv-ms-attr em { color: #006400; font-style: normal; font-weight: bold; }
+    #hv-minsteps-main-name {
+      padding: 2px 0 4px;
+      border-bottom: 1px solid #a47c78;
+      text-align: center;
+      font-weight: bold;
+      overflow-wrap: anywhere;
+    }
+    #hv-minsteps-main-attrs { display: block; container-type: inline-size; }
+    .hv-ms-main-base .eq {
+      width: 520px;
+      max-width: 100%;
+      margin: 0 auto;
+      color: #5c0d11;
+      font-size: 9pt;
+    }
+    .hv-ms-main-base .eq > .ex,
+    .hv-ms-main-base .eq > .ep {
+      display: grid;
+      grid-template-columns: repeat(var(--hv-ms-base-columns, 2), minmax(0, 1fr));
+      gap: 0 5px;
+      justify-items: center;
+    }
+    .hv-ms-main-base .eq > .ep1 { --hv-ms-base-columns: 1; }
+    .hv-ms-main-base .eq > .ep3 { --hv-ms-base-columns: 3; }
+    .hv-ms-main-base .eq > .ex { border-top: 0; }
+    .hv-ms-main-base .hv-ms-base-heading {
+      grid-column: 1 / -1;
+      width: auto !important;
+      height: auto;
+      margin: 2px 0 0 !important;
+      font-weight: bold;
+      text-align: center;
+    }
+    .hv-ms-main-base .eq .hv-ms-base-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 4px;
+      width: auto;
+      max-width: 100%;
+      height: auto;
+      min-height: 18px;
+      text-align: left;
+    }
+    .hv-ms-main-base .eq .hv-ms-base-row > div {
+      float: none;
+      width: auto;
+      padding: 1px 0;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      text-align: left;
+    }
+    .hv-ms-main-base .eq .hv-ms-base-row > div:last-child {
+      flex-shrink: 0;
+      white-space: nowrap;
+      text-align: right;
+    }
+    .hv-ms-main-base em { color: #006400; font-style: normal; font-weight: bold; }
+    @container (max-width: 519px) {
+      .hv-ms-main-base .eq > .ex,
+      .hv-ms-main-base .eq > .ep { --hv-ms-base-columns: 1; }
+    }
     .hv-ms-preview,
     .hv-ms-count {
       display: block;
@@ -7364,8 +7289,8 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     }
     #hv-fusion-material-overlay {
       position: fixed;
-      top: 120px;
-      left: 250px;
+      top: 230px;
+      left: min(1260px, max(7px, calc(100vw - 748px)));
       z-index: 10001;
       display: none;
       width: min(720px, calc(100vw - 28px));
@@ -7420,10 +7345,13 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       line-height: 1.5;
       white-space: pre-line;
     }
+    .hv-fusion-material-note { text-align: left; }
     .hv-fusion-material-total { font-weight: bold; }
-    .hv-fusion-material-table { width: 100%; border-collapse: collapse; margin: 6px 0; table-layout: fixed; }
+    .hv-fusion-material-table { width: 100%; min-width: 640px; border-collapse: collapse; margin: 6px 0; table-layout: fixed; }
     .hv-fusion-material-table th,
     .hv-fusion-material-table td { padding: 4px; border: 1px solid #b9aa99; text-align: center; overflow-wrap: anywhere; }
+    .hv-fusion-material-table th:first-child,
+    .hv-fusion-material-table td:first-child { width: 180px; white-space: nowrap; overflow-wrap: normal; }
     .hv-fusion-material-table th { background: #edb; }
     @media (max-width: 900px) {
       #hv-fusion-material-overlay {
@@ -7461,6 +7389,57 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       border: 1px solid #b9aa99;
       font: 9pt Consolas, monospace;
     }
+    @media (min-width: 901px) {
+      .hv-ms-body {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .hv-ms-toolbar,
+      .hv-ms-status-row { flex-shrink: 0; }
+      .hv-ms-grid {
+        flex: 1 1 auto;
+        min-height: 0;
+        grid-template-rows: minmax(0, 1fr);
+      }
+      .hv-ms-grid > div {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .hv-ms-grid > div > .hv-ms-card {
+        flex-shrink: 0;
+        margin: 0 0 6px;
+      }
+      .hv-ms-grid .hv-ms-card h3 {
+        flex-shrink: 0;
+        margin-top: 0;
+      }
+      .hv-ms-grid .hv-ms-actions { margin-bottom: 0; }
+      .hv-ms-grid > div:first-child > .hv-ms-card {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .hv-ms-grid > div:first-child .hv-ms-tabs { flex-shrink: 0; }
+      .hv-ms-grid > div:first-child .hv-ms-list {
+        flex: 1 1 0;
+        height: 0;
+        min-height: 0;
+        max-height: none;
+      }
+      .hv-ms-grid > div:last-child > .hv-ms-card:last-child {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .hv-ms-grid > div:last-child .hv-ms-log {
+        flex: 1 1 auto;
+        min-height: 0;
+      }
+    }
     @media (max-width: 900px) {
       #hv-minsteps-panel {
         top: 70px;
@@ -7469,6 +7448,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         max-height: calc(100vh - 14px);
       }
       .hv-ms-grid { grid-template-columns: 1fr; }
+      .hv-ms-equip-label { white-space: normal; overflow-wrap: anywhere; }
       .hv-ms-attrs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
   `;
@@ -7535,10 +7515,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
               <div id="hv-minsteps-main-preview" class="hv-ms-preview"></div>
             </div>
             <div class="hv-ms-card">
-              <div id="hv-minsteps-fuse-name"><b>（未选择）</b></div>
-              <div id="hv-minsteps-fuse-attrs" class="hv-ms-attrs"></div>
-            </div>
-            <div class="hv-ms-card">
               <h3>日志</h3>
               <div id="hv-minsteps-log" class="hv-ms-log"></div>
             </div>
@@ -7557,11 +7533,16 @@ HVEA_MATERIALS.inventoryMaterialNames = [
   applyHveaPrimaryButtonStyle(launchButton);
   actionPanel.append(launchButton);
   document.body.appendChild(actionPanel);
+  HVEA_SHARED.ui.bindWindowFocus();
 
   const equipTip = document.createElement("div");
   equipTip.id = "hv-minsteps-equip-tip";
   equipTip.className = "hv-ms-tip";
   document.body.appendChild(equipTip);
+  const equipmentPreviewCache = new Map();
+  let nativeEquipTip = null;
+  let equipTipRequestToken = 0;
+  let equipTipCursor = null;
 
   const $ = (id) => document.getElementById(id);
   const panel = $("hv-minsteps-panel");
@@ -7574,8 +7555,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
   const mainName = $("hv-minsteps-main-name");
   const mainAttrs = $("hv-minsteps-main-attrs");
   const mainPreview = $("hv-minsteps-main-preview");
-  const fuseName = $("hv-minsteps-fuse-name");
-  const fuseAttrs = $("hv-minsteps-fuse-attrs");
   const status = $("hv-minsteps-status");
   const logBox = $("hv-minsteps-log");
   let detailedLog = "";
@@ -7586,7 +7565,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
   const pauseButton = $("hv-minsteps-pause");
   const exportPlanButton = $("hv-minsteps-export-plan");
   const materialCalcButton = $("hv-minsteps-material-calc");
-  const planSelector = null;
 
   function getFusionMaterialDonors() {
     const plannedIds = state.currentPlan.map((step) => Number(step?.id)).filter(Number.isInteger);
@@ -7666,6 +7644,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       });
     }
     overlay.classList.add("open");
+    HVEA_SHARED.ui.focusWindow(overlay);
     renderFusionMaterialPanel();
   }
 
@@ -7776,10 +7755,11 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     const coreInventory = (name) => Math.max(0, Number(inventory[name]) || 0);
     const bindingInventory = Object.entries(bindingTotals)
       .filter(([, need]) => need > 0)
-      .map(([name]) => `${fusionResourceDisplayName(name)} ${coreInventory(name)}`)
-      .join("｜");
-    note.textContent = `材料库存：L武器 ${coreInventory("Legendary Weapon Core")}｜L法杖 ${coreInventory("Legendary Staff Core")}｜L护甲 ${coreInventory("Legendary Armor Core")}`
-      + (bindingInventory ? `\n粘合剂库存：${bindingInventory}` : "");
+      .map(([name]) => `${fusionResourceDisplayName(name).replace(/^粘合剂\s*/, "")}:${coreInventory(name)}`)
+      .join(" ");
+    const coreLabel = { Weapon: "L武器", Staff: "L法杖", Armor: "L护甲" }[mainCoreTypeName()];
+    note.textContent = `核心 | ${coreLabel} ${coreInventory(coreKey)}`
+      + (bindingInventory ? `\n粘合剂 | ${bindingInventory}` : "");
     total.textContent = totalCost === null
       ? "总成本：未知（融合费用未知 + 核心费用 " + formatAdaptiveCost(coreCost) + " + 粘合剂费用 " + formatAdaptiveCost(bindingCost) + "）"
       : `总成本：${formatAdaptiveCost(totalCost)}（融合费用 ${formatAdaptiveCost(fusionCost)} + 核心费用 ${formatAdaptiveCost(coreCost)} + 粘合剂费用 ${formatAdaptiveCost(bindingCost)}）`;
@@ -7938,11 +7918,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
   }
 
   function formatAdaptiveCost(credits) {
-    const amount = Number(credits) || 0;
-    if (Math.abs(amount) >= 1_000_000) return formatCostCompact(amount);
-    const value = amount / 1_000;
-    const text = Number.isInteger(value) ? String(value) : value.toFixed(3).replace(/\.?0+$/, "");
-    return `${text}k`;
+    return HVEA_SHARED.format.money(Number(credits) || 0);
   }
 
   function formatCost(credits) {
@@ -7954,6 +7930,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     constructor(id, name, attrs, source = "inventory", eqtType = "", equipUrl = "") {
       this.id = id;
       this.name = name;
+      this.displayName = name;
       this.attrs = { ...attrs };
       this.source = source;
       this.equipUrl = equipUrl || "";
@@ -7967,7 +7944,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     }
 
     toString() {
-      return `${this.id} - ${this.name}`;
+      return `${this.id} - ${this.displayName || this.name}`;
     }
   }
 
@@ -8008,11 +7985,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     return "Armor";
   }
 
-  // 核心单价：勾选“核心按市场价”时读取所选来源的保存价，否则用固定价
-  function updateCount() {
-    // The fusion panel no longer displays core or cost summaries.
-  }
-
   function getFusionPriceMaterialNames() {
     if (!state.mainEquip) return [];
     const names = new Set();
@@ -8039,44 +8011,16 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       return;
     }
     const materialService = HVEA_SERVICES.get("materials");
-    if (materialService && typeof materialService.refreshPrices === "function") {
-      state.busy = true;
-      try {
-        report("正在刷新市场价格……", "", true);
-        await materialService.refreshPrices(state.corePriceSource, null, getFusionPriceMaterialNames());
-        updateCount();
-        report("市场价格已刷新。", "ok");
-      } catch (error) {
-        report(`价格刷新失败：${error.message || "读取失败"}`, "warn");
-      } finally {
-        state.busy = false;
-      }
-      return;
-    }
-    if (!state.mainEquip) {
-      report("请先设置主装备。", "warn");
-      return;
-    }
-    const url = state.mainEquip.equipUrl || "";
-    if (!url) {
-      report("主装备缺少完整链接，无法刷新价格，请重新导入主装备。", "warn");
+    if (!materialService || typeof materialService.refreshPrices !== "function") {
+      report("材料价格服务不可用，请刷新页面后重试。", "warn");
       return;
     }
     state.busy = true;
     try {
-      report("正在刷新主装备价格……", "", true);
-      const html = await requestEquipmentHtml(url);
-      const refreshed = parseEquipmentPage(html, state.mainEquip.id, url);
-      refreshed.source = "main";
-      refreshed.equipUrl = url;
-      state.mainEquip = refreshed;
-      state.baseMainEquip = cloneEquipment(refreshed, "main");
-      state.attrKeys = Object.keys(refreshed.attrs);
-      state.fuseEquip = null;
-      updateCount();
-      refreshUI();
-      saveState();
-      report("价格已刷新。", "ok");
+      report("正在刷新市场价格……", "", true);
+      await materialService.refreshPrices(state.corePriceSource, getFusionPriceMaterialNames(),
+        (current, total) => showToast(`正在读取市场价格：${current}/${total}`, "", 0));
+      report("市场价格已刷新。", "ok");
     } catch (error) {
       report(`价格刷新失败：${error.message || "读取失败"}`, "warn");
     } finally {
@@ -8094,71 +8038,20 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       return;
     }
     const materialService = HVEA_SERVICES.get("materials");
-    if (materialService && typeof materialService.refreshInventory === "function") {
-      state.busy = true;
-      try {
-        report("正在读取库存……", "", true);
-        await materialService.refreshInventory();
-        report("库存已刷新。", "ok");
-      } catch (error) {
-        report(`库存刷新失败：${error.message || "读取失败"}`, "warn");
-      } finally {
-        state.busy = false;
-      }
+    if (!materialService || typeof materialService.refreshInventory !== "function") {
+      report("材料库存服务不可用，请刷新页面后重试。", "warn");
       return;
     }
-    const rows = [...document.querySelectorAll("#equiplist tr[data-eid][data-key]")];
-    if (!rows.length) {
-      report("当前页面没有装备列表（需在 HV 装备页面使用）。", "warn");
-      return;
+    state.busy = true;
+    try {
+      report("正在读取库存……", "", true);
+      await materialService.refreshInventory();
+      report("库存已刷新。", "ok");
+    } catch (error) {
+      report(`库存刷新失败：${error.message || "读取失败"}`, "warn");
+    } finally {
+      state.busy = false;
     }
-
-    const byId = new Map(state.allEquips.map((equip) => [String(equip.id), equip]));
-    const urlsToFetch = [];
-    let updated = 0;
-    for (const row of rows) {
-      const id = row.getAttribute("data-eid");
-      const key = row.getAttribute("data-key");
-      if (!id || !key) continue;
-      const url = `https://hentaiverse.org/equip/${id}/${key}`;
-      const existing = byId.get(id);
-      if (existing) {
-        if (existing.equipUrl !== url) {
-          existing.equipUrl = url;
-          updated += 1;
-        }
-        continue;
-      }
-      urlsToFetch.push(url);
-    }
-
-    const loaded = [];
-    const failed = [];
-    if (urlsToFetch.length) {
-      state.busy = true;
-      try {
-        const fetched = await fetchEquipmentLinks(urlsToFetch, "inventory", "库存装备");
-        loaded.push(...fetched.loaded);
-        failed.push(...fetched.failed);
-      } finally {
-        state.busy = false;
-      }
-    }
-
-    let added = 0;
-    for (const equip of loaded) {
-      if (equip.id === state.mainEquip?.id) continue;
-      byId.set(String(equip.id), equip);
-      added += 1;
-    }
-    state.allEquips = [...byId.values()];
-    if (!state.attrKeys.length && state.allEquips.length) {
-      state.attrKeys = Object.keys(state.allEquips[0].attrs);
-    }
-    refreshUI();
-    saveState();
-    const summary = `库存已刷新：新增 ${added} 件，更新链接 ${updated} 件${failed.length ? `，失败 ${failed.length} 件` : ""}。`;
-    report(summary, failed.length ? "warn" : "ok");
   }
 
   function serializePlanStep(step) {
@@ -8188,196 +8081,9 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     };
   }
 
-  function readSavedInputs() {
-    const storage = getPageStorage();
-    if (!storage) return [];
-
-    try {
-      const raw = storage.getItem(INPUTS_STORAGE_KEY);
-      if (!raw) return [];
-      const saved = JSON.parse(raw);
-      if (!Array.isArray(saved)) return [];
-
-      return saved.map((plan) => {
-        if (!plan || !plan.id || !plan.name) return null;
-        const mainEquip = deserializeEquipment(plan.mainEquip, "main");
-        if (!mainEquip) return null;
-        const allEquips = Array.isArray(plan.allEquips)
-          ? plan.allEquips
-            .map((item) => deserializeEquipment(item, "inventory"))
-            .filter(Boolean)
-            .filter((equip) => equip.id !== mainEquip.id)
-          : [];
-        const attrKeys = Array.isArray(plan.attrKeys) && plan.attrKeys.length
-          ? plan.attrKeys.filter((key) => typeof key === "string" && key)
-          : Object.keys(mainEquip.attrs);
-        return {
-          id: String(plan.id),
-          name: String(plan.name),
-          mainEquip,
-          allEquips,
-          attrKeys,
-          savedAt: Number.isFinite(Number(plan.savedAt)) ? Number(plan.savedAt) : 0,
-        };
-      }).filter(Boolean);
-    } catch {
-      return [];
-    }
-  }
-
-  function writeSavedInputs(inputs) {
-    const storage = getPageStorage();
-    if (!storage) return false;
-
-    try {
-      storage.setItem(INPUTS_STORAGE_KEY, JSON.stringify(inputs));
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  function updateInputSelector() {
-    if (!planSelector) return;
-    const savedInputs = readSavedInputs();
-    planSelector.replaceChildren();
-
-    const placeholder = document.createElement("option");
-    placeholder.value = "";
-    placeholder.textContent = savedInputs.length ? "" : "暂无方案";
-    placeholder.disabled = savedInputs.length > 0;
-    placeholder.hidden = savedInputs.length > 0;
-    planSelector.appendChild(placeholder);
-
-    for (const input of savedInputs) {
-      const option = document.createElement("option");
-      option.value = input.id;
-      option.textContent = input.name;
-      planSelector.appendChild(option);
-    }
-
-    if (savedInputs.some((input) => input.id === state.savedInputId)) {
-      planSelector.value = state.savedInputId;
-    } else {
-      state.savedInputId = "";
-      planSelector.value = "";
-    }
-  }
-
   function setCurrentPlan(steps, meta = null) {
     state.currentPlan = deserializePlanSteps(steps);
     state.currentPlanMeta = meta ? normalizePlanMeta(meta, state.currentPlan.length) : null;
-    updateInputSelector();
-  }
-
-  function saveInputData() {
-    if (!state.mainEquip) {
-      setStatus("请先输入主装备数据。", "warn");
-      return;
-    }
-
-    const inputMainEquip = state.baseMainEquip || state.mainEquip;
-    const defaultName = inputMainEquip
-      ? `${inputMainEquip.name} - ${state.allEquips.length}件融合装备`
-      : `装备数据 ${new Date().toLocaleString()}`;
-    const input = prompt("请输入方案名称（保存主装备和融合装备）：", defaultName);
-    if (input === null) return;
-
-    const name = input.trim().slice(0, 80) || defaultName;
-    const savedInputs = readSavedInputs();
-    const sameIndex = savedInputs.findIndex((item) => item.name === name);
-    const existing = sameIndex >= 0 ? savedInputs[sameIndex] : null;
-    const record = {
-      id: existing?.id || `input-${Date.now().toString(36)}`,
-      name,
-      mainEquip: serializeEquipment(inputMainEquip, false),
-      allEquips: state.allEquips.map((equip) => serializeEquipment(equip, false)),
-      attrKeys: state.attrKeys,
-      savedAt: Date.now(),
-    };
-    const nextPlans = sameIndex >= 0
-      ? savedInputs.map((item, index) => (index === sameIndex ? record : item))
-      : [record, ...savedInputs].slice(0, MAX_SAVED_INPUTS);
-
-    if (!writeSavedInputs(nextPlans)) {
-      setStatus("输入数据保存失败，浏览器存储可能不可用。", "warn");
-      return;
-    }
-
-    state.savedInputId = record.id;
-    updateInputSelector();
-    saveState();
-    setStatus(`方案“${name}”保存成功。`, "ok");
-  }
-
-  function loadSavedInputData() {
-    if (state.busy) {
-      setStatus("搜索进行中，暂时不能读取输入数据。", "warn");
-      return;
-    }
-
-    const inputId = planSelector.value;
-    if (!inputId) return;
-
-    const savedInput = readSavedInputs().find((item) => item.id === inputId);
-    if (!savedInput) {
-      updateInputSelector();
-      setStatus("找不到要读取的输入数据。", "warn");
-      return;
-    }
-
-    state.mainEquip = cloneEquipment(savedInput.mainEquip, "main");
-    state.baseMainEquip = cloneEquipment(savedInput.mainEquip, "main");
-    state.allEquips = savedInput.allEquips;
-    state.attrKeys = savedInput.attrKeys;
-    state.fuseEquip = null;
-    state.fusionCount = 0;
-    state.totalFusionCost = 0;
-    state.totalCores = 0;
-    state.activeTab = "all";
-    state.currentPlan = [];
-    state.currentPlanMeta = null;
-    state.savedInputId = savedInput.id;
-    clearLog();
-    updateCount();
-    refreshUI();
-    updateInputSelector();
-    saveState();
-    setStatus(`已读取输入数据：${savedInput.name}。`, "ok");
-  }
-
-  function deleteSavedInputData() {
-    if (state.busy) {
-      setStatus("搜索进行中，暂时不能删除方案。", "warn");
-      return;
-    }
-
-    const inputId = planSelector.value;
-    if (!inputId) {
-      setStatus("请先在方案列表中选择要删除的方案。", "warn");
-      return;
-    }
-
-    const savedInputs = readSavedInputs();
-    const savedInput = savedInputs.find((item) => item.id === inputId);
-    if (!savedInput) {
-      updateInputSelector();
-      setStatus("找不到要删除的方案。", "warn");
-      return;
-    }
-
-    if (!confirm(`确定删除方案“${savedInput.name}”吗？`)) return;
-
-    const nextInputs = savedInputs.filter((item) => item.id !== inputId);
-    if (!writeSavedInputs(nextInputs)) {
-      setStatus("方案删除失败，浏览器存储可能不可用。", "warn");
-      return;
-    }
-
-    state.savedInputId = "";
-    updateInputSelector();
-    saveState();
-    setStatus(`方案“${savedInput.name}”已删除。`, "ok");
   }
 
   function getPageStorage() {
@@ -8394,6 +8100,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       id: equip.id,
       equipUrl: equip.equipUrl || "",
       name: equip.name,
+      displayName: equip.displayName || equip.name,
       attrs: { ...equip.attrs },
       source: equip.source === "virtual" ? "virtual" : equip.source === "other" ? "other" : "inventory",
       used: includeUsed && equip.used === true,
@@ -8417,6 +8124,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
 
     const source = defaultSource === "main" ? "main" : raw.source === "virtual" ? "virtual" : raw.source === "other" ? "other" : "inventory";
     const equip = new Equipment(Number(raw.id), String(raw.name || `装备 ${raw.id}`), attrs, source, String(raw.eqtType || ""), String(raw.equipUrl || ""));
+    equip.displayName = String(raw.displayName || equip.name);
     equip.used = defaultSource !== "main" && raw.used === true;
     equip.quality = raw.quality || detectQuality(equip.name);
     // 旧缓存没有 eqtType：不按名称猜测，标记为未知
@@ -8431,6 +8139,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
   function cloneEquipment(equip, source = equip?.source || "inventory") {
     if (!equip) return null;
     const clone = new Equipment(equip.id, equip.name, equip.attrs, source, equip.eqtType || "", equip.equipUrl || "");
+    clone.displayName = equip.displayName || equip.name;
     clone.used = source !== "main" && equip.used === true;
     return clone;
   }
@@ -8452,6 +8161,88 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     return base;
   }
 
+  function captureFusionData() {
+    return {
+      mainEquip: state.mainEquip ? serializeEquipment(state.mainEquip) : null,
+      baseMainEquip: state.baseMainEquip ? serializeEquipment(state.baseMainEquip, false) : null,
+      allEquips: state.allEquips.map((equip) => serializeEquipment(equip)),
+      attrKeys: state.attrKeys,
+      fusionCount: state.fusionCount,
+      totalFusionCost: state.totalFusionCost,
+      totalCores: state.totalCores,
+      activeTab: state.activeTab,
+      fuseEquipId: state.fuseEquip?.id ?? null,
+      currentPlan: state.currentPlan.map(serializePlanStep).filter(Boolean),
+      currentPlanMeta: state.currentPlanMeta,
+      lastFusionDonorIds: state.lastFusionDonorIds,
+      log: detailedLog,
+      conciseLog: state.conciseLog.map(String),
+    };
+  }
+
+  function recordFusionUndo(label) {
+    fusionRedoStack.length = 0;
+    fusionUndoStack.push({ label, data: JSON.stringify(captureFusionData()) });
+    if (fusionUndoStack.length > MAX_FUSION_UNDO) fusionUndoStack.shift();
+  }
+
+  function undoFusionOperation() {
+    restoreFusionHistory(fusionUndoStack, fusionRedoStack, "撤回");
+  }
+
+  function redoFusionOperation() {
+    restoreFusionHistory(fusionRedoStack, fusionUndoStack, "重做");
+  }
+
+  function restoreFusionHistory(fromStack, toStack, action) {
+    if (state.busy) {
+      setStatus(`正在读取或计算，暂时不能${action}。`, "warn");
+      return;
+    }
+    const entry = fromStack.pop();
+    if (!entry) return;
+    toStack.push({ label: entry.label, data: JSON.stringify(captureFusionData()) });
+    if (toStack.length > MAX_FUSION_UNDO) toStack.shift();
+    const saved = JSON.parse(entry.data);
+    document.getElementById("hv-fusion-custom-overlay")?.remove();
+    state.mainEquip = deserializeEquipment(saved.mainEquip, "main");
+    state.baseMainEquip = deserializeEquipment(saved.baseMainEquip, "main");
+    state.allEquips = saved.allEquips.map((equip) => deserializeEquipment(equip, "inventory")).filter(Boolean);
+    state.fuseEquip = state.allEquips.find((equip) => equip.id === saved.fuseEquipId) || null;
+    state.attrKeys = saved.attrKeys;
+    state.fusionCount = saved.fusionCount;
+    state.totalFusionCost = saved.totalFusionCost;
+    state.totalCores = saved.totalCores;
+    state.activeTab = saved.activeTab;
+    state.currentPlan = deserializePlanSteps(saved.currentPlan);
+    state.currentPlanMeta = saved.currentPlanMeta;
+    state.lastFusionDonorIds = saved.lastFusionDonorIds;
+    state.conciseLog = saved.conciseLog;
+    state.pauseRequested = false;
+    detailedLog = saved.log;
+    renderLog();
+    refreshUI();
+    if (state.fuseEquip) updatePreview();
+    renderFusionMaterialPanel();
+    saveState();
+    const message = `已${action}：${entry.label}。`;
+    setStatus(message, "ok");
+    if (!$("hv-minsteps-panel").classList.contains("open")) showToast(message, "ok");
+  }
+
+  function handleFusionHistoryKeydown(event) {
+    if (event.defaultPrevented || event.isComposing || !event.ctrlKey || event.altKey
+      || event.metaKey || event.shiftKey) return;
+    const key = event.key.toLowerCase();
+    if (key !== "z" && key !== "y") return;
+    if (event.target?.isContentEditable || event.target?.closest?.("input, textarea, select")) return;
+    if (!(key === "z" ? fusionUndoStack : fusionRedoStack).length) return;
+    if (!$("hv-minsteps-panel").classList.contains("open") && !isFusionPage()) return;
+    event.preventDefault();
+    if (key === "z") undoFusionOperation();
+    else redoFusionOperation();
+  }
+
   function saveState() {
     const storage = getPageStorage();
     if (!storage) return;
@@ -8460,24 +8251,10 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       storage.setItem(
         STORAGE_KEY,
         JSON.stringify({
-          mainEquip: state.mainEquip ? serializeEquipment(state.mainEquip) : null,
-          baseMainEquip: state.baseMainEquip ? serializeEquipment(state.baseMainEquip, false) : null,
-          allEquips: state.allEquips.map(serializeEquipment),
-          attrKeys: state.attrKeys,
-          fusionCount: state.fusionCount,
-          totalFusionCost: state.totalFusionCost,
-          totalCores: state.totalCores,
-          activeTab: state.activeTab,
-          fuseEquipId: state.fuseEquip?.id ?? null,
-          currentPlan: state.currentPlan.map(serializePlanStep).filter(Boolean),
-          currentPlanMeta: state.currentPlanMeta,
-          lastFusionDonorIds: state.lastFusionDonorIds,
-          savedInputId: state.savedInputId,
+          ...captureFusionData(),
           coreMarketPrice: state.coreMarketPrice,
           useInventory: state.useInventory,
           corePriceSource: state.corePriceSource,
-          log: detailedLog,
-          conciseLog: state.conciseLog.map(String),
         }),
       );
     } catch {
@@ -8488,7 +8265,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
   function restoreState() {
     const storage = getPageStorage();
     if (!storage) {
-      updateCount();
       clearInfo();
       setStatus("请先设置主装备，再添加库存或非库存装备。");
       return;
@@ -8497,7 +8273,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     try {
       const raw = storage.getItem(STORAGE_KEY);
       if (!raw) {
-        updateCount();
         clearInfo();
         setStatus("请先设置主装备，再添加库存或非库存装备。");
         return;
@@ -8534,7 +8309,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       state.lastFusionDonorIds = Array.isArray(saved.lastFusionDonorIds)
         ? saved.lastFusionDonorIds.map(Number).filter(Number.isInteger)
         : [];
-      state.savedInputId = typeof saved.savedInputId === "string" ? saved.savedInputId : "";
       state.coreMarketPrice = saved.coreMarketPrice !== false;
       state.useInventory = saved.useInventory === true || (saved.useInventory === undefined && saved.useCoreInventory === true);
       state.corePriceSource = typeof saved.corePriceSource === "string" ? saved.corePriceSource : "hvut";
@@ -8542,14 +8316,11 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       detailedLog = savedLog;
       state.conciseLog = Array.isArray(saved.conciseLog) ? saved.conciseLog.map(String) : [];
       renderLog();
-      updateCount();
       refreshUI();
-      updateInputSelector();
       saveState();
       setStatus(`已恢复缓存：${state.mainEquip ? "1 件主装备，" : ""}${state.allEquips.length} 件融合装备。`, "ok");
     } catch {
       storage.removeItem(STORAGE_KEY);
-      updateCount();
       clearInfo();
       setStatus("缓存读取失败，已清除损坏缓存。", "warn");
     }
@@ -8607,6 +8378,9 @@ HVEA_MATERIALS.inventoryMaterialNames = [
   }
 
   function buildEquipUrlFromPage(id) {
+    const pageWindow = typeof unsafeWindow !== "undefined" ? unsafeWindow : window;
+    const equipKey = pageWindow.dynjs_eqstore?.[id]?.k || pageWindow.dynjs_equip?.[id]?.k;
+    if (equipKey) return new URL(`/equip/${id}/${equipKey}`, location.href).href;
     const row = document.querySelector(`#equiplist tr[data-eid="${id}"][data-key]`);
     if (row) {
       const key = row.getAttribute("data-key");
@@ -8626,8 +8400,8 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     const candidates = [...state.allEquips];
     if (state.mainEquip) candidates.push(state.mainEquip, state.baseMainEquip);
     for (const equip of candidates) {
-      if (!equip || seen.has(equip.id)) continue;
-      seen.add(equip.id);
+      if (!equip || seen.has(equip)) continue;
+      seen.add(equip);
       if (equip.equipUrl) continue;
       const url = buildEquipUrlFromPage(equip.id);
       if (url) {
@@ -8660,23 +8434,32 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     });
   }
 
+  function getFusionEquipmentNames(root, nameLink = null) {
+    const titleBlock = root.matches?.(".showequip")
+      ? root.firstElementChild
+      : root.querySelector(".showequip > div:first-child, #popup_box > div:first-child");
+    for (const block of [titleBlock, nameLink]) {
+      const text = String(block?.children?.[1]?.textContent || "").replace(/\s+/g, " ").trim();
+      if (text.startsWith("(") && text.endsWith(")")) {
+        const name = text.slice(1, -1).trim();
+        const customName = String(block.children[0]?.textContent || "").replace(/\s+/g, " ").trim();
+        return { name, displayName: customName && customName !== name ? `${customName}(${name})` : name };
+      }
+    }
+    const name = String((nameLink || titleBlock)?.textContent || "").replace(/\s+/g, " ").trim();
+    return { name, displayName: name };
+  }
+
   function parseEquipmentPage(html, id, fallbackUrl = "") {
     const doc = new DOMParser().parseFromString(html, "text/html");
     const root = doc.querySelector(".showequip") || doc;
-    let name = "";
     const equipLinks = Array.from(root.querySelectorAll("a[href]"));
     const idLink = equipLinks.find((link) => {
       const href = link.getAttribute("href") || "";
       return /\/equip\/\d+/.test(href) && href.includes(`/equip/${id}`);
     }) || equipLinks.find((link) => /\/equip\/\d+/.test(link.getAttribute("href") || ""));
-    if (idLink) {
-      name = String(idLink.textContent || "").replace(/\s+/g, " ").trim();
-    }
-    if (!name) {
-      const firstDiv = root.querySelector(".showequip > div:first-child, #popup_box > div:first-child");
-      if (firstDiv) name = String(firstDiv.textContent || "").replace(/\s+/g, " ").trim();
-    }
-    if (!name) name = String(id);
+    const names = getFusionEquipmentNames(root, idLink);
+    const name = names.name || String(id);
     const eqtNode = doc.querySelector(".eqt");
     const eqtType = eqtNode
       ? String(eqtNode.textContent || "")
@@ -8703,6 +8486,8 @@ HVEA_MATERIALS.inventoryMaterialNames = [
 
     if (!Object.keys(attrs).length) throw new Error("页面中没有识别到带 Base 数值的装备属性");
     const equip = new Equipment(id, name, attrs, "other", eqtType, fallbackUrl);
+    equip.displayName = names.displayName || name;
+    rememberEquipPreview(root, id);
     return equip;
   }
 
@@ -8926,6 +8711,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     const attrs = Object.fromEntries(state.attrKeys.map((key) => [key, 200]));
     const donor = new Equipment(id, `虚拟素材${String(number).padStart(2, "0")}`, attrs, "virtual");
     donor.quality = "Peerless";
+    recordFusionUndo("添加虚拟素材");
     state.allEquips.push(donor);
     resetProgress();
     state.activeTab = "other";
@@ -9028,6 +8814,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       while (state.allEquips.some((equip) => equip.id === id)) id -= 1;
       const donor = new Equipment(id, `自定义素材${String(number).padStart(2, "0")}`, attrs, "virtual", mainEquip.eqtType || "");
       donor.quality = "Legendary";
+      recordFusionUndo("添加自定义装备");
       state.allEquips.push(donor);
       resetProgress();
       state.activeTab = "other";
@@ -9069,6 +8856,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
 
     if (!added) return 0;
 
+    recordFusionUndo("导入非库存装备");
     state.allEquips = [
       ...state.allEquips.filter((equip) => equip.source === "inventory" && !incomingIds.has(equip.id)),
       ...otherById.values(),
@@ -9088,10 +8876,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     state.currentPlan = [];
     state.currentPlanMeta = null;
     state.lastFusionDonorIds = [];
-    state.savedInputId = "";
     clearLog();
-    updateCount();
-    updateInputSelector();
   }
 
   function loadMainEquip(equips) {
@@ -9101,7 +8886,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     }
 
     const nextMainEquip = equips[0];
-    document.getElementById("hv-fusion-custom-overlay")?.remove();
     const previousMainEquip = state.baseMainEquip || state.mainEquip;
     const previousSignature = previousMainEquip ? getManualFusionSignature(previousMainEquip) : "";
     const nextSignature = getManualFusionSignature(nextMainEquip);
@@ -9112,6 +8896,8 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     );
     const clearedCount = clearMaterials ? state.allEquips.length : 0;
 
+    recordFusionUndo("导入主装备");
+    document.getElementById("hv-fusion-custom-overlay")?.remove();
     state.mainEquip = nextMainEquip;
     state.baseMainEquip = cloneEquipment(state.mainEquip, "main");
     state.attrKeys = Object.keys(state.mainEquip.attrs);
@@ -9139,6 +8925,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       return;
     }
 
+    recordFusionUndo("导入库存装备");
     const incomingIds = new Set(equips.map((equip) => equip.id));
     const inventoryById = new Map(
       state.allEquips
@@ -9199,14 +8986,51 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     mainName.innerHTML = "<b>（未粘贴）</b>";
     mainAttrs.innerHTML = "";
     mainPreview.textContent = "";
-    fuseName.innerHTML = "<b>（未选择融合装备）</b>";
-    fuseAttrs.innerHTML = "";
   }
 
   function getPageEquipData(id) {
     const pageWindow = typeof unsafeWindow !== "undefined" ? unsafeWindow : window;
-    const dyn = pageWindow.dynjs_equip || {};
-    return dyn[id] || null;
+    return pageWindow.dynjs_eqstore?.[id] || pageWindow.dynjs_equip?.[id] || null;
+  }
+
+  function rememberEquipPreview(root, id) {
+    const titleBlock = root.querySelector(".showequip > div:first-child, #popup_box > div:first-child");
+    const details = root.querySelector(".eq");
+    if (!titleBlock || !details) return null;
+    const preview = { title: titleBlock.innerHTML, details: details.outerHTML };
+    equipmentPreviewCache.set(id, preview);
+    return preview;
+  }
+
+  async function getNativeEquipPreview(equip) {
+    const data = getPageEquipData(equip.id);
+    if (data?.d) {
+      const title = document.createElement("div");
+      if (data.n) {
+        const customName = document.createElement("div");
+        customName.textContent = data.t;
+        const originalName = document.createElement("div");
+        originalName.textContent = `(${data.n})`;
+        title.append(customName, originalName);
+      } else {
+        title.textContent = data.t || equip.displayName || equip.name;
+      }
+      return { title: title.innerHTML, details: data.d };
+    }
+    if (equipmentPreviewCache.has(equip.id)) return equipmentPreviewCache.get(equip.id);
+    const url = equip.equipUrl || buildEquipUrlFromPage(equip.id);
+    if (!url) return null;
+    const pending = requestEquipmentHtml(url).then((html) => {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const preview = rememberEquipPreview(doc, equip.id);
+      if (!preview) equipmentPreviewCache.delete(equip.id);
+      return preview;
+    }).catch(() => {
+      equipmentPreviewCache.delete(equip.id);
+      return null;
+    });
+    equipmentPreviewCache.set(equip.id, pending);
+    return pending;
   }
 
   function parseTipValue(raw) {
@@ -9252,14 +9076,36 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     }).join("\n");
   }
 
-  function showEquipTip(equip, event) {
+  async function showEquipTip(equip, event) {
+    hideEquipTip();
+    if (!equip) return;
+    const token = equipTipRequestToken;
+    equipTipCursor = { clientX: event.clientX, clientY: event.clientY };
+    showLocalEquipTip(equip, equipTipCursor);
+    if (equip.source === "virtual") return;
+    const preview = await getNativeEquipPreview(equip);
+    if (token !== equipTipRequestToken || !preview) return;
+    const pageWindow = typeof unsafeWindow !== "undefined" ? unsafeWindow : window;
+    const popup = document.getElementById("popup_box");
+    if (!popup || typeof pageWindow.common?.show_popup_box !== "function") return;
+    popup.setAttribute("data-hvea-fusion-tip", "");
+    pageWindow.common.show_popup_box(0, 0, 360, 360, "", undefined, "right", preview.title, preview.details, "");
+    nativeEquipTip = popup;
+    equipTip.style.display = "none";
+    moveEquipTip(equipTipCursor);
+    requestAnimationFrame(() => {
+      if (token === equipTipRequestToken) moveEquipTip(equipTipCursor);
+    });
+  }
+
+  function showLocalEquipTip(equip, event) {
     if (!equip) return;
     equipTip.replaceChildren();
 
     const data = getPageEquipData(equip.id);
     const title = document.createElement("div");
     title.className = "hv-ms-tip-name";
-    title.textContent = data?.t ? `[${equip.id}] ${data.t}` : `[${equip.id}] ${equip.name}`;
+    title.textContent = `[${equip.id}] ${equip.displayName || data?.t || equip.name}`;
     equipTip.appendChild(title);
 
     const attrsPart = document.createElement("div");
@@ -9308,20 +9154,60 @@ HVEA_MATERIALS.inventoryMaterialNames = [
   }
 
   function moveEquipTip(event) {
+    if (!event) return;
+    equipTipCursor = { clientX: event.clientX, clientY: event.clientY };
+    const tip = nativeEquipTip || equipTip;
+    if (nativeEquipTip) {
+      const titleHeight = tip.children[0]?.offsetHeight || 0;
+      const detailsHeight = tip.children[1]?.offsetHeight || 0;
+      tip.style.height = `${Math.max(360, titleHeight + detailsHeight + 60)}px`;
+    }
     const margin = 14;
-    const tipWidth = equipTip.offsetWidth || 200;
-    const tipHeight = equipTip.offsetHeight || 80;
+    const tipWidth = tip.offsetWidth || 200;
+    const tipHeight = tip.offsetHeight || 80;
     let left = event.clientX + margin;
     let top = event.clientY + margin;
     if (left + tipWidth > window.innerWidth - 6) left = event.clientX - tipWidth - margin;
     if (top + tipHeight > window.innerHeight - 6) top = event.clientY - tipHeight - margin;
-    equipTip.style.left = `${Math.max(2, left)}px`;
-    equipTip.style.top = `${Math.max(2, top)}px`;
+    tip.style.left = `${Math.max(2, left)}px`;
+    tip.style.top = `${Math.max(2, top)}px`;
   }
 
   function hideEquipTip() {
+    equipTipRequestToken += 1;
+    if (nativeEquipTip) {
+      const pageWindow = typeof unsafeWindow !== "undefined" ? unsafeWindow : window;
+      nativeEquipTip.removeAttribute("data-hvea-fusion-tip");
+      if (typeof pageWindow.common?.hide_popup_box === "function") pageWindow.common.hide_popup_box();
+      else nativeEquipTip.removeAttribute("style");
+      nativeEquipTip = null;
+    }
     equipTip.style.display = "none";
     equipTip.replaceChildren();
+  }
+
+  function openFusionEquipment(equip, event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const hasKey = new RegExp(`/equip/${equip.id}/[^/?#]+`, "i").test(equip.equipUrl || "");
+    let url = hasKey ? equip.equipUrl : "";
+    if (!hasKey) {
+      const pageUrl = buildEquipUrlFromPage(equip.id);
+      if (pageUrl) {
+        equip.equipUrl = pageUrl;
+        url = pageUrl;
+        saveState();
+      }
+    }
+    if (!url) {
+      setStatus(`未找到装备 ${equip.id} 的完整链接，请重新导入该装备。`, "warn");
+      return;
+    }
+    const popupWidth = 450;
+    const popupHeight = 520;
+    const popupLeft = Math.max(0, Math.round((window.screen.availWidth - popupWidth) / 2));
+    const popupTop = Math.max(0, Math.round((window.screen.availHeight - popupHeight) / 2));
+    window.open(url, "_blank", `noopener,width=${popupWidth},height=${popupHeight},left=${popupLeft},top=${popupTop}`);
   }
 
   function updateList() {
@@ -9339,41 +9225,24 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       const usedLabel = equip.used ? " [已使用]" : "";
 
       const previewLabel = state.mainEquip
-        ? ` [+ ${calcPreview(state.mainEquip.attrs, equip.attrs).total}]`
+        ? ` [+${calcPreview(state.mainEquip.attrs, equip.attrs).total}]`
         : "";
       const label = document.createElement("span");
       label.className = "hv-ms-equip-label";
       const sourceSpan = document.createElement("span");
+      sourceSpan.className = "hv-ms-equip-source";
       sourceSpan.textContent = `[${sourceLabel}] [${qualityLabel}] `;
       const idSpan = document.createElement("span");
       idSpan.className = "hv-ms-equip-id";
+      idSpan.dataset.eid = String(equip.id);
       idSpan.textContent = String(equip.id);
       if (equip.source !== "virtual") {
-        idSpan.addEventListener("click", (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          const hasKey = new RegExp(`/equip/${equip.id}/[^/?#]+`, "i").test(equip.equipUrl || "");
-          let url = hasKey ? equip.equipUrl : "";
-          if (!hasKey) {
-            const pageUrl = buildEquipUrlFromPage(equip.id);
-            if (pageUrl) {
-              equip.equipUrl = pageUrl;
-              url = pageUrl;
-              saveState();
-            }
-          }
-          if (!url) {
-            setStatus(`未找到装备 ${equip.id} 的完整链接，请重新导入该装备。`, "warn");
-            return;
-          }
-          const popupWidth = 450;
-          const popupHeight = 520;
-          const popupLeft = Math.max(0, Math.round((window.screen.availWidth - popupWidth) / 2));
-          const popupTop = Math.max(0, Math.round((window.screen.availHeight - popupHeight) / 2));
-          window.open(url, "_blank", `noopener,width=${popupWidth},height=${popupHeight},left=${popupLeft},top=${popupTop}`);
-        });
+        idSpan.addEventListener("click", (event) => openFusionEquipment(equip, event));
       }
-      label.append(sourceSpan, idSpan, document.createTextNode(previewLabel + usedLabel));
+      const resultSpan = document.createElement("span");
+      resultSpan.className = "hv-ms-equip-result";
+      resultSpan.textContent = ` [${qualityPercent(equip.attrs, equip.quality).toFixed(1)}%]` + previewLabel + usedLabel;
+      label.append(sourceSpan, idSpan, resultSpan);
       idSpan.addEventListener("mouseenter", (event) => showEquipTip(equip, event));
       idSpan.addEventListener("mousemove", moveEquipTip);
       idSpan.addEventListener("mouseleave", hideEquipTip);
@@ -9408,7 +9277,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
 
       if (changes && changes[key]) {
         const [oldValue, gain] = changes[key];
-        item.append(document.createTextNode(`${label}: ${oldValue} → ${oldValue + gain} `));
+        item.append(document.createTextNode(`${label}: ${oldValue} `));
         const mark = document.createElement("em");
         mark.textContent = `(+${gain})`;
         item.appendChild(mark);
@@ -9419,32 +9288,128 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     }
   }
 
+  async function displayMainBasePreview(equip, changes) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "hv-ms-attrs";
+    displayAttrs(wrapper, equip, changes);
+    mainAttrs.replaceChildren(wrapper);
+
+    const preview = await getNativeEquipPreview(equip);
+    // Ignore an older request after another render or a reset.
+    if (!preview || mainAttrs.firstElementChild !== wrapper) return;
+    const template = document.createElement("template");
+    template.innerHTML = preview.details;
+    const nativeDetails = template.content.querySelector(".eq");
+    if (!nativeDetails) return;
+
+    const details = document.createElement("div");
+    details.className = "eq";
+    const seen = new Set();
+    const headings = {
+      "Proficiency": "熟练度",
+      "Spell Damage": "魔法伤害",
+      "Damage Mitigation": "伤害减免",
+      "Primary Attributes": "主属性",
+    };
+    const makeBaseRow = (row) => {
+      const rawName = row.firstElementChild?.textContent.trim() || "";
+      const normalized = normalizeAttributeName(rawName);
+      const key = Object.keys(equip.attrs).find((name) =>
+        name === normalized || translateEquipTipAttribute(name) === rawName);
+      if (!key || seen.has(key)) return null;
+      seen.add(key);
+      const baseRow = row.cloneNode(false);
+      baseRow.className = "hv-ms-base-row";
+      baseRow.removeAttribute("style");
+      baseRow.title = `Base: ${equip.attrs[key]}`;
+      const label = document.createElement("div");
+      label.textContent = translateEquipTipAttribute(key);
+      const value = document.createElement("div");
+      const change = changes?.[key];
+      const number = document.createElement("span");
+      number.textContent = change
+        ? String(change[0])
+        : String(equip.attrs[key]);
+      value.append(number);
+      if (change) {
+        const gain = document.createElement("em");
+        gain.textContent = ` (+${change[1]})`;
+        value.append(gain);
+      }
+      baseRow.append(label, value);
+      return baseRow;
+    };
+    for (const group of nativeDetails.children) {
+      if (!group.matches(".ex, .ep")) {
+        if (group.hasAttribute("title")) {
+          const row = makeBaseRow(group);
+          if (row) details.append(row);
+        }
+        continue;
+      }
+      const copy = group.cloneNode(false);
+      const rows = Array.from(group.children)
+        .filter((row) => row.children.length >= 2)
+        .map(makeBaseRow).filter(Boolean);
+      if (!rows.length) continue;
+      if (group.classList.contains("ep")) {
+        const heading = group.firstElementChild.cloneNode(false);
+        heading.className = "hv-ms-base-heading";
+        const text = group.firstElementChild.textContent.trim();
+        heading.textContent = headings[text] || text;
+        copy.append(heading);
+      }
+      copy.append(...rows);
+      details.append(copy);
+    }
+    // A different native format must not hide any imported base attributes.
+    if (seen.size !== Object.keys(equip.attrs).length) return;
+    wrapper.className = "hv-ms-main-base";
+    wrapper.replaceChildren(details);
+  }
+
   function displayMain(equip, changes = null) {
-    mainName.textContent = `[${equip.id}] ${equip.name}`;
-    displayAttrs(mainAttrs, equip, changes);
+    const idSpan = document.createElement("span");
+    idSpan.className = "hv-ms-equip-id";
+    idSpan.dataset.eid = String(equip.id);
+    idSpan.addEventListener("click", (event) => openFusionEquipment(equip, event));
+    idSpan.addEventListener("mouseenter", (event) => showEquipTip(equip, event));
+    idSpan.addEventListener("mousemove", moveEquipTip);
+    idSpan.addEventListener("mouseleave", hideEquipTip);
+    const displayName = equip.displayName || equip.name;
+    const originalSuffix = `(${equip.name})`;
+    const titleName = displayName !== equip.name && displayName.endsWith(originalSuffix)
+      ? displayName.slice(0, -originalSuffix.length).trim() || equip.name
+      : displayName;
+    const idText = document.createElement("span");
+    idText.className = "hv-ms-main-id";
+    idText.textContent = `[${equip.id}]`;
+    const nameText = document.createElement("span");
+    nameText.id = "hv-minsteps-main-title";
+    nameText.className = "hv-ms-equip-name";
+    nameText.textContent = titleName;
+    idSpan.append(idText, " ", nameText);
+    mainName.replaceChildren(idSpan);
+    displayMainBasePreview(equip, changes).catch(() => {});
     mainPreview.replaceChildren();
 
     const percent = qualityPercent(equip.attrs, equip.quality);
-    const capName = FUSE_CAP[equip.fuseCap]?.label || "未知";
     const perFusion = fuseCostCredits(equip.attrs, equip.quality, equip.fuseCapCredits);
+    let percentText = `${percent.toFixed(1)}%`;
+    let gainText = "";
+    if (changes) {
+      const nextAttrs = { ...equip.attrs };
+      let total = 0;
+      for (const [key, [oldValue, gain]] of Object.entries(changes)) {
+        nextAttrs[key] = oldValue + gain;
+        total += gain;
+      }
+      percentText += `→${qualityPercent(nextAttrs, equip.quality).toFixed(1)}%`;
+      gainText = `｜增加 ${total} 点属性`;
+    }
     const infoLine = document.createElement("div");
-    infoLine.textContent = perFusion === null
-      ? `优秀度：${percent.toFixed(1)}%｜费用上限：${capName}｜本次融合费用：未知`
-      : `优秀度：${percent.toFixed(1)}%｜费用上限：${capName}｜本次融合费用：${formatCostCompact(perFusion)}`;
+    infoLine.textContent = `优秀度：${percentText}｜融合费用：${perFusion === null ? "未知" : formatCostCompact(perFusion)}${gainText}`;
     mainPreview.appendChild(infoLine);
-
-    if (!changes) return;
-
-    const total = Object.values(changes).reduce((sum, item) => sum + item[1], 0);
-    const gainLine = document.createElement("div");
-    gainLine.textContent = `本次预计增加 ${total} 点属性`;
-    mainPreview.appendChild(gainLine);
-
-  }
-
-  function displayFuse(equip) {
-    fuseName.textContent = `[${equip.id}] ${equip.name}`;
-    displayAttrs(fuseAttrs, equip);
   }
 
   function refreshUI() {
@@ -9458,7 +9423,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     clearInfo();
 
     if (state.mainEquip) displayMain(state.mainEquip);
-    if (state.fuseEquip) displayFuse(state.fuseEquip);
   }
 
   function removeEquipment(equip) {
@@ -9470,11 +9434,10 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     const index = state.allEquips.findIndex((item) => item.id === equip.id);
     if (index < 0) return;
 
+    recordFusionUndo(`删除装备 ${equip.id}`);
     state.allEquips.splice(index, 1);
     if (state.fuseEquip?.id === equip.id) state.fuseEquip = null;
-    state.savedInputId = "";
     refreshUI();
-    updateInputSelector();
     saveState();
     setStatus(`已移除装备 ${equip.id}。`, "ok");
   }
@@ -9514,7 +9477,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     }
 
     state.fuseEquip = equip;
-    displayFuse(equip);
     updatePreview();
     saveState();
     list.querySelectorAll("li").forEach((item) => {
@@ -9812,6 +9774,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
   }
 
   function applyFusion(donor, writeLog = true, persist = true) {
+    if (isMaxed(state.mainEquip.attrs)) return null;
     const result = calcPreview(state.mainEquip.attrs, donor.attrs);
     const cost = fuseCostCredits(state.mainEquip.attrs, state.mainEquip.quality, state.mainEquip.fuseCapCredits);
     const percent = qualityPercent(state.mainEquip.attrs, state.mainEquip.quality);
@@ -9853,6 +9816,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     logRenderSuspended = true;
     try {
       for (const donor of donors) {
+        if (isMaxed(state.mainEquip.attrs)) break;
         if (!donor || !state.allEquips.some((equip) => equip.id === donor.id && !equip.used)) continue;
         applyFusion(donor, true, false);
       }
@@ -9949,6 +9913,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       return;
     }
 
+    recordFusionUndo("计算融合顺序");
     restoreCalculationState();
     saveState();
     const donors = state.allEquips.filter((equip) => !equip.used);
@@ -10002,7 +9967,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     applyFusionPlan(result.path.map((donorIndex) => donors[donorIndex]).filter(Boolean));
 
     state.fuseEquip = null;
-    updateCount();
     refreshUI();
     saveState();
     setStatus(
@@ -10019,12 +9983,17 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       alert("请先粘贴主装备数据。");
       return;
     }
+    if (isMaxed(state.mainEquip.attrs)) {
+      setStatus("主装备属性已全部达到 200，无法再次融合。", "warn");
+      return;
+    }
     if (!state.fuseEquip) {
       alert("请先点击左侧列表选择祭品。");
       return;
     }
 
     const donor = state.fuseEquip;
+    recordFusionUndo("手动融合");
     const manualCost = fuseCostCredits(state.mainEquip.attrs, state.mainEquip.quality, state.mainEquip.fuseCapCredits);
     const manualCores = calcCoreCost(state.mainEquip, donor);
     const manualPlan = [...state.currentPlan, { id: donor.id, name: donor.name }];
@@ -10034,7 +10003,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     );
     applyFusion(donor);
     state.fuseEquip = null;
-    updateCount();
     refreshUI();
     saveState();
     setStatus(manualCost === null ? `手动融合完成，本次费用未知，本次核心 ${manualCores}。` : `手动融合完成，本次费用 ${formatCost(manualCost)}，本次核心 ${manualCores}。`, "ok");
@@ -10050,6 +10018,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       return;
     }
 
+    recordFusionUndo("精确计算融合顺序");
     restoreCalculationState();
     saveState();
     const seconds = Math.max(
@@ -10113,7 +10082,6 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     applyFusionPlan(path.map((donorIndex) => donors[donorIndex]).filter(Boolean));
 
     state.fuseEquip = null;
-    updateCount();
     refreshUI();
     saveState();
 
@@ -10159,9 +10127,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     state.lastFusionDonorIds = [];
     state.activeTab = "all";
     clearLog();
-    updateCount();
     refreshUI();
-    updateInputSelector();
     renderFusionMaterialPanel();
   }
 
@@ -10171,13 +10137,19 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       return;
     }
 
+    recordFusionUndo("重置计算");
     restoreCalculationState();
     saveState();
     setStatus("计算已重置，装备数据已保留。", "ok");
   }
 
   function resetData() {
+    if (state.busy) {
+      setStatus("正在读取或计算，暂时不能重置数据。", "warn");
+      return;
+    }
     if (!window.confirm("确定要重置所有融合数据吗？主装备、素材、融合记录和日志将被清除。")) return;
+    recordFusionUndo("重置数据");
     document.getElementById("hv-fusion-custom-overlay")?.remove();
     state.pauseRequested = false;
     state.allEquips = [];
@@ -10191,16 +10163,14 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     state.activeTab = "all";
     state.currentPlan = [];
     state.currentPlanMeta = null;
-    state.savedInputId = "";
+    state.lastFusionDonorIds = [];
     try {
       getPageStorage()?.removeItem(STORAGE_KEY);
     } catch {
       // Storage may be disabled; the in-memory reset still succeeds.
     }
-    updateCount();
     clearLog();
     refreshUI();
-    updateInputSelector();
     setStatus("数据已重置。", "ok");
   }
 
@@ -10475,15 +10445,8 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     function parseMainEquipFromModify(html, id, eqtType) {
       const doc = new DOMParser().parseFromString(html, "text/html");
       const root = doc.querySelector(".showequip") || doc;
-      const titleBlock = root.firstElementChild;
-      const originalNameLine = titleBlock?.children?.[1];
-      const displayNameLine = titleBlock?.children?.[0] || titleBlock;
-      let name = String(originalNameLine?.textContent || "")
-        .replace(/\s+/g, " ")
-        .trim();
-      if (name.startsWith("(") && name.endsWith(")")) name = name.slice(1, -1).trim();
-      if (!name) name = String(displayNameLine?.textContent || "").replace(/\s+/g, " ").trim();
-      if (!name) name = String(id);
+      const names = getFusionEquipmentNames(root);
+      const name = names.name || String(id);
       const attrs = {};
       root.querySelectorAll('[title*="Base"], [title*="基础值"]').forEach((node) => {
         const title = node.getAttribute("title") || "";
@@ -10495,7 +10458,10 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         if (attrName) attrs[attrName] = Number.parseInt(match[1], 10);
       });
       if (!Object.keys(attrs).length) throw new Error("modify 页面没有识别到带基础值的装备属性");
-      return new Equipment(Number(id), name, attrs, "main", eqtType || "", "");
+      const equip = new Equipment(Number(id), name, attrs, "main", eqtType || "", buildEquipUrlFromPage(Number(id)));
+      equip.displayName = names.displayName || name;
+      rememberEquipPreview(root, Number(id));
+      return equip;
     }
 
     async function getPageMainEquip() {
@@ -10508,7 +10474,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       if (!mainId) return null;
       mainId = String(mainId);
 
-      // 改造页的重命名按钮保留原始装备名，优先用它避免改名影响融合类型判断。
+      // 从改造页标题读取原名，避免改名影响融合类型判断。
       const modifyLink = document.querySelector('#eqback a[href*="screen=modify"]');
       if (modifyLink?.href) {
         try {
@@ -10526,10 +10492,15 @@ HVEA_MATERIALS.inventoryMaterialNames = [
         showToast("正在读取装备，请稍候。", "warn");
         return;
       }
-      if ((state.baseMainEquip || state.mainEquip) && !confirm("当前已导入主装备，是否替换为当前页面的主装备？")) {
-        return;
+      if ((state.baseMainEquip || state.mainEquip)
+        && !confirm("当前已导入主装备，是否替换为当前页面的主装备？\n导入新类型主装备会清空库存。")) return;
+      state.busy = true;
+      let mainEquip;
+      try {
+        mainEquip = await getPageMainEquip();
+      } finally {
+        state.busy = false;
       }
-      const mainEquip = await getPageMainEquip();
       if (!mainEquip) {
         alert("没有找到主装备数据。");
         return;
@@ -10548,7 +10519,13 @@ HVEA_MATERIALS.inventoryMaterialNames = [
       const activeMainEquip = state.baseMainEquip || state.mainEquip;
       if (activeMainEquip) {
         showToast("正在校验当前页面主装备……", "", 0);
-        const pageMainEquip = await getPageMainEquip();
+        state.busy = true;
+        let pageMainEquip;
+        try {
+          pageMainEquip = await getPageMainEquip();
+        } finally {
+          state.busy = false;
+        }
         const activeSignature = getManualFusionSignature(activeMainEquip);
         const pageSignature = getManualFusionSignature(pageMainEquip);
         if (!pageMainEquip || activeSignature !== pageSignature) {
@@ -10608,8 +10585,15 @@ HVEA_MATERIALS.inventoryMaterialNames = [
     getDonors: getFusionMaterialDonors,
   });
   const fusionUI = Object.freeze({
-    open: () => panel.classList.add("open"),
-    toggle: () => panel.classList.toggle("open"),
+    open: () => {
+      panel.classList.add("open");
+      HVEA_SHARED.ui.focusWindow(panel);
+    },
+    toggle: () => {
+      const opened = panel.classList.toggle("open");
+      if (opened) HVEA_SHARED.ui.focusWindow(panel);
+      return opened;
+    },
     refresh: refreshUI,
     setStatus,
   });
@@ -10622,6 +10606,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
   });
 
   function startFusionModule() {
+  HVEA_SERVICES.get('materials').subscribe(renderFusionMaterialPanel);
   launchButton.addEventListener("click", () => HVEA_SHARED.fusion.ui.toggle());
   $("hv-minsteps-close").addEventListener("click", () => panel.classList.remove("open"));
   [
@@ -10682,6 +10667,7 @@ HVEA_MATERIALS.inventoryMaterialNames = [
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeImportMenu();
   });
+  document.addEventListener("keydown", handleFusionHistoryKeydown);
   $("hv-minsteps-reset-calculation").addEventListener("click", HVEA_SHARED.fusion.solver.reset);
   $("hv-minsteps-reset").addEventListener("click", resetData);
   materialCalcButton.addEventListener("click", HVEA_SHARED.fusion.materials.openPanel);
@@ -10721,5 +10707,11 @@ HVEA_MATERIALS.inventoryMaterialNames = [
   }
 
   HVEA_MODULES.register("fusion", HVEA_SHARED.fusion, startFusionModule);
-  HVEA_MODULES.start("fusion");
 })();
+
+// Startup
+ensureHveaSecondaryButtonStyle();
+ensureHveaPrimaryButtonStyle();
+ensureHveaFusionActionButtonStyle();
+HVEA_MODULES.start("upgrade");
+HVEA_MODULES.start("fusion");
