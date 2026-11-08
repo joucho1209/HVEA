@@ -1283,8 +1283,13 @@ HVEA_SHARED.ui = {
 
   const CHARM_EFFECT_CACHE = new Map();
 
-  function getCharmEffect(type, size, weaponClass, level) {
-    const cacheKey = `${type}|${size}|${weaponClass}|${Number(level) || 0}`;
+  function getCharmEffect(type, size, weaponClass, level, slot = null) {
+    const name = String(slot?.originalName || slot?.enName || slot?.name || '').trim().toLowerCase();
+    const effectWeaponClass = type === 'economizer'
+      && (weaponClass === 'twohand' || weaponClass === 'staff')
+      && (name.endsWith(' of battlecaster') || name.endsWith(' of focus'))
+      ? 'onehand' : weaponClass;
+    const cacheKey = `${type}|${size}|${effectWeaponClass}|${Number(level) || 0}`;
     if (CHARM_EFFECT_CACHE.has(cacheKey)) return CHARM_EFFECT_CACHE.get(cacheKey);
     const def = CHARM_DEFS[type];
     const sizeSpec = def?.sizes?.[size];
@@ -1293,7 +1298,7 @@ HVEA_SHARED.ui = {
       CHARM_EFFECT_CACHE.set(cacheKey, empty);
       return empty;
     }
-    const spec = sizeSpec[weaponClass] || sizeSpec.any || null;
+    const spec = sizeSpec[effectWeaponClass] || sizeSpec.any || null;
     if (!spec) {
       const empty = Object.freeze(createZeroCharmEffect());
       CHARM_EFFECT_CACHE.set(cacheKey, empty);
@@ -2565,7 +2570,7 @@ HVEA_SHARED.ui = {
         const weaponClass = resolveWeaponClass(slot);
         (charms || []).forEach(charm => {
             if (!charm || !CHARM_DEFS[charm.type]) return;
-            const effect = getCharmEffect(charm.type, charm.size, weaponClass, level);
+            const effect = getCharmEffect(charm.type, charm.size, weaponClass, level, slot);
             if (!effect) return;
             if (title === 'Magic Accuracy' && (Number(effect.maccPercent) || Number(effect.maccFlat))) {
                 value = (value - Number(effect.maccFlat || 0)) / (1 + Number(effect.maccPercent || 0) / 100);
@@ -2636,7 +2641,7 @@ HVEA_SHARED.ui = {
             return stat?.section || 'ex';
         };
         charms.forEach(charm => {
-            const effect = getCharmEffect(charm.type, charm.size, weaponClass, level);
+            const effect = getCharmEffect(charm.type, charm.size, weaponClass, level, slot);
             if (!effect) return;
             const targets = [];
             if (Number(effect.maccPercent) || Number(effect.maccFlat)) {
@@ -5947,9 +5952,9 @@ HVEA_SHARED.ui = {
       };
     }
 
-    function getManaCostReductionFromCharms(charms, weaponClass, level) {
+    function getManaCostReductionFromCharms(charms, weaponClass, level, slot) {
       return (charms || []).reduce((total, charm) => {
-        const effect = getCharmEffect(charm?.type, charm?.size, weaponClass, level);
+        const effect = getCharmEffect(charm?.type, charm?.size, weaponClass, level, slot);
         return total + Number(effect?.manaCostReduction || 0);
       }, 0);
     }
@@ -5972,8 +5977,8 @@ HVEA_SHARED.ui = {
         const weaponClass = resolveWeaponClass(slot);
         const actualCharms = Array.isArray(charmState.actualCharms[key]) ? charmState.actualCharms[key] : [];
         const selectedCharms = getSelectedCharmsForSlot(key);
-        const actualCharmReduction = getManaCostReductionFromCharms(actualCharms, weaponClass, level);
-        const selectedCharmReduction = getManaCostReductionFromCharms(selectedCharms, weaponClass, level);
+        const actualCharmReduction = getManaCostReductionFromCharms(actualCharms, weaponClass, level, slot);
+        const selectedCharmReduction = getManaCostReductionFromCharms(selectedCharms, weaponClass, level, slot);
 
         if (hasEquipmentManaCostStat) {
           actualReduction += rawReduction;
@@ -6027,10 +6032,10 @@ HVEA_SHARED.ui = {
           const selectedInfo = selectedCharms.find(charm => charm.type === type);
           const actualInfo = actualCharms.find(charm => charm.type === type);
           const selectedEffect = selectedInfo
-            ? getCharmEffect(selectedInfo.type, selectedInfo.size, weaponClass, level)
+            ? getCharmEffect(selectedInfo.type, selectedInfo.size, weaponClass, level, slot)
             : createZeroCharmEffect();
           const actualEffect = actualInfo
-            ? getCharmEffect(actualInfo.type, actualInfo.size, weaponClass, level)
+            ? getCharmEffect(actualInfo.type, actualInfo.size, weaponClass, level, slot)
             : createZeroCharmEffect();
           if (defenseSlot) {
             net.maxHealthPercent += ((selectedEffect.maxHealthPercent || 0) - (actualEffect.maxHealthPercent || 0)) * multiplier;
@@ -10240,6 +10245,50 @@ HVEA_SHARED.ui = {
 
     const pageState = { originalRuns: null };
 
+    function getPageMainEquipId() {
+      const params = new URLSearchParams(location.search);
+      const mainId = params.get("upgrade_eqid");
+      if (mainId && /^\d+$/.test(mainId)) return mainId;
+      for (const link of document.querySelectorAll("#itemlist a[href]")) {
+        const id = new URL(link.href, location.href).searchParams.get("eqids[]");
+        if (id && /^\d+$/.test(id)) return id;
+      }
+      return null;
+    }
+
+    function getPagePlanStorageKey() {
+      const mainId = getPageMainEquipId();
+      return mainId ? `HV_FUSE_PAGE_PLAN_V1:${mainId}` : null;
+    }
+
+    function savePagePlan(ids) {
+      const key = getPagePlanStorageKey();
+      if (!key) return;
+      try {
+        const storage = getPageStorage();
+        if (ids) storage?.setItem(key, JSON.stringify(ids));
+        else storage?.removeItem(key);
+      } catch {}
+    }
+
+    function readSavedPagePlan() {
+      const key = getPagePlanStorageKey();
+      if (!key) return null;
+      try {
+        const ids = JSON.parse(getPageStorage()?.getItem(key) || "null");
+        if (!Array.isArray(ids) || !ids.length
+          || !ids.every(id => typeof id === "string" && /^\d{6,}$/.test(id))) return null;
+        return [...new Set(ids)];
+      } catch {
+        return null;
+      }
+    }
+
+    function restoreSavedPagePlan() {
+      const ids = readSavedPagePlan();
+      return ids ? applyPagePlan(ids, true) : false;
+    }
+
     function getEquipmentRows() {
       return [...document.querySelectorAll("#equiplist tr[data-eid]")]
         .filter((row) => row.querySelector('input[name="eqids[]"]'));
@@ -10322,21 +10371,15 @@ HVEA_SHARED.ui = {
       return ids;
     }
 
-    function applyPagePlan(ids) {
+    function applyPagePlan(ids, silent = false) {
       let rows = getEquipmentRows();
       if (!rows.length) {
-        alert("没有找到可选的融合装备。");
-        return;
+        if (!silent) alert("没有找到可选的融合装备。");
+        return false;
       }
-
-      if (pageState.originalRuns) restoreOriginalOrder();
-      else captureOriginalOrder(rows);
-      rows = getEquipmentRows();
-      clearPageOrderMarkers();
 
       const rowById = new Map(rows.map((row) => [String(row.dataset.eid), row]));
       const orderById = new Map(ids.map((id, index) => [id, index]));
-      const originalIndex = new Map(rows.map((row, index) => [row, index]));
       const foundIds = [];
       const missingIds = [];
 
@@ -10351,9 +10394,15 @@ HVEA_SHARED.ui = {
       });
 
       if (!foundIds.length) {
-        alert("方案中的装备均不在当前可选列表中。");
-        return;
+        if (!silent) alert("方案中的装备均不在当前可选列表中。");
+        return false;
       }
+
+      if (pageState.originalRuns) restoreOriginalOrder();
+      else captureOriginalOrder(rows);
+      rows = getEquipmentRows();
+      clearPageOrderMarkers();
+      const originalIndex = new Map(rows.map((row, index) => [row, index]));
 
       const markerCellByRow = new Map();
       rows.forEach((row) => {
@@ -10385,12 +10434,13 @@ HVEA_SHARED.ui = {
         replaceEquipmentRun(runInfo, orderedRows);
       }
 
-      if (missingIds.length) {
+      if (missingIds.length && !silent) {
         const missingText = missingIds
           .map(({ index, id }) => `${index}. ${id}`)
           .join("\n");
         alert(`方案已导入，但有 ${missingIds.length} 件装备不在当前列表中：\n${missingText}`);
       }
+      return true;
     }
 
     importButton.addEventListener("click", () => {
@@ -10405,13 +10455,26 @@ HVEA_SHARED.ui = {
         alert("没有识别到有效的装备ID。");
         return;
       }
-      applyPagePlan(ids);
+      if (applyPagePlan(ids)) savePagePlan(ids);
     });
 
     clearButton.addEventListener("click", () => {
+      savePagePlan(null);
       clearPageOrderMarkers();
       restoreOriginalOrder();
     });
+
+    if (readSavedPagePlan() && !restoreSavedPagePlan()) {
+      const list = document.getElementById("equiplist");
+      if (list) {
+        const observer = new MutationObserver(() => {
+          if (restoreSavedPagePlan()) observer.disconnect();
+        });
+        observer.observe(list, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-eid"] });
+        window.addEventListener("pagehide", () => observer.disconnect(), { once: true });
+        clearButton.addEventListener("click", () => observer.disconnect());
+      }
+    }
 
     const CHINESE_ATTR_MAP = {
       "攻击准确率": "Attack Accuracy", "魔法命中值": "Magic Accuracy",
@@ -10465,14 +10528,8 @@ HVEA_SHARED.ui = {
     }
 
     async function getPageMainEquip() {
-      let mainId = new URLSearchParams(location.search).get("upgrade_eqid");
-      if (!mainId) {
-        const itemLink = document.querySelector('#itemlist a[href*="eqids[]"]');
-        const match = (itemLink?.href || "").match(/eqids\[\]=(\d+)/);
-        if (match) mainId = match[1];
-      }
+      const mainId = getPageMainEquipId();
       if (!mainId) return null;
-      mainId = String(mainId);
 
       // 从改造页标题读取原名，避免改名影响融合类型判断。
       const modifyLink = document.querySelector('#eqback a[href*="screen=modify"]');
