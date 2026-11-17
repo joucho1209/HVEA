@@ -2,7 +2,7 @@
 // @name         HV 装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.4.1
+// @version      1.5.0
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -2044,11 +2044,28 @@ HVEA_SHARED.ui = {
 
     function parseStatsFromHtml(html) {
         const stats = [];
+        const strikes = [];
         const doc = new DOMParser().parseFromString(html, 'text/html');
         const eq = doc.querySelector('.eq');
         let eqt = '';
         const counterResistCharmBonus = getCounterResistCharmBonus(doc);
-        if (!eq) return { stats, eqt, counterResistCharmBonus };
+        if (!eq) return { stats, strikes, eqt, counterResistCharmBonus };
+
+        const strikeNames = [
+            ['Fire Strike', '火焰打击'], ['Cold Strike', '冰霜打击'],
+            ['Elec Strike', '闪电打击'], ['Wind Strike', '疾风打击'],
+            ['Holy Strike', '神圣打击'], ['Dark Strike', '黑暗打击'],
+            ['Void Strike', '虚空打击'],
+        ];
+        for (const node of eq.querySelectorAll(':scope > div > span')) {
+            const text = node.textContent.trim();
+            const match = /^(.*?)\s*\((\d+(?:\.\d+)?)%\)$/.exec(text);
+            if (!match) continue;
+            const name = match[1] === 'Lightning Strike' ? 'Elec Strike' : match[1];
+            const element = strikeNames.findIndex(names => names.includes(name));
+            if (element < 0) continue;
+            strikes.push({ element, label: strikeNames[element][1], fraction: Number(match[2]) / 100 });
+        }
 
         const eqtDiv = eq.querySelector('.eqt');
         if (eqtDiv) eqt = eqtDiv.textContent.trim();
@@ -2128,7 +2145,7 @@ HVEA_SHARED.ui = {
             }
         }
 
-        return { stats, eqt, counterResistCharmBonus };
+        return { stats, strikes, eqt, counterResistCharmBonus };
     }
 
     const EQUIPMENT_DETAIL_CACHE = new Map();
@@ -2142,6 +2159,7 @@ HVEA_SHARED.ui = {
         return (slots || []).map(slot => ({
             ...slot,
             stats: Array.isArray(slot.stats) ? slot.stats.map(stat => ({ ...stat })) : [],
+            strikes: Array.isArray(slot.strikes) ? slot.strikes.map(strike => ({ ...strike })) : [],
             charmInfo: Array.isArray(slot.charmInfo)
                 ? slot.charmInfo.map(charm => ({ ...charm }))
                 : slot.charmInfo,
@@ -2206,6 +2224,7 @@ HVEA_SHARED.ui = {
             iw: tierMatch ? parseInt(tierMatch[2], 10) : 0,
             max: tierMatch ? parseInt(tierMatch[3], 10) : 0,
             stats: parsed.stats,
+            strikes: parsed.strikes,
             weaponType: parsed.eqt,
             counterResistValue: counterResistStat && Number.isFinite(Number(counterResistStat.val))
                 ? Number(counterResistStat.val)
@@ -2300,6 +2319,7 @@ HVEA_SHARED.ui = {
             let originalName = '';
             let forge = 0, iw = 0, max = 0;
             let stats = [];
+            let strikes = [];
             let weaponType = '';
             let counterResistValue = null;
             let counterResistRate = 1;
@@ -2325,6 +2345,7 @@ HVEA_SHARED.ui = {
                 iw = parsed.iw;
                 max = parsed.max;
                 stats = parsed.stats.map(stat => ({ ...stat }));
+                strikes = parsed.strikes.map(strike => ({ ...strike }));
                 weaponType = parsed.weaponType;
                 counterResistValue = parsed.counterResistValue;
                 counterResistRate = parsed.counterResistRate;
@@ -2415,6 +2436,7 @@ HVEA_SHARED.ui = {
                 max,
                 quality,
                 stats,
+                strikes,
                 weaponType,
                 counterResistValue,
                 counterResistRate,
@@ -2800,20 +2822,21 @@ HVEA_SHARED.ui = {
     const DAMAGE_SETTINGS_KEY = `HVEA_damage_settings_${IS_ISEKAI_PAGE ? 'isekai' : 'main'}`;
     const DAMAGE_CHAOS_LEVEL = 20;
     // T3喵层计算-Qine-V0.3.0.xlsx: monster rows 4-16, columns E:J, N, P, AD:AI.
+    // Physical stats: EHWiki Monster_Lab numerical charts; physical = crushing/slashing/piercing.
     const DAMAGE_MONSTERS = [
-        { name: '节肢动物', resistance: [25, -25, 25, 25, 0, 0], endurance: 100, wisdom: 40, growth: [1, 1.5, 1, 1, 1.25, 1.25] },
-        { name: '飞禽', resistance: [-25, 0, 25, -50, 0, 0], endurance: 40, wisdom: 50, growth: [1.5, 1.25, 1, 1.75, 1.25, 1.25] },
-        { name: '兽类', resistance: [-25, 25, 0, 25, 0, 0], endurance: 70, wisdom: 20, growth: [1.5, 1, 1.25, 1, 1.25, 1.25] },
-        { name: '天使', resistance: [25, 25, 25, 25, 25, -50], endurance: 50, wisdom: 80, growth: [1, 1, 1, 1, 1, 1.75] },
-        { name: '魔鬼', resistance: [25, 25, 25, 25, -50, 25], endurance: 40, wisdom: 50, growth: [1, 1, 1, 1, 1.75, 1] },
-        { name: '龙类', resistance: [25, -50, 25, -25, 0, 0], endurance: 90, wisdom: 60, growth: [1, 1.75, 1, 1.5, 1.25, 1.25] },
-        { name: '元素精灵', resistance: [25, 25, 25, 25, 25, 25], endurance: 40, wisdom: 120, growth: [1, 1, 1, 1, 1, 1] },
-        { name: '巨人', resistance: [25, 25, -25, -25, 0, 0], endurance: 120, wisdom: 10, growth: [1, 1, 1.5, 1.5, 1.25, 1.25] },
-        { name: '类人类', resistance: [0, 0, 0, 0, 0, -25], endurance: 50, wisdom: 70, growth: [1.25, 1.25, 1.25, 1.25, 1.25, 1.5] },
-        { name: '人形机器人', resistance: [25, 25, -50, 25, 25, 0], endurance: 70, wisdom: 30, growth: [1, 1, 1.75, 1, 1, 1.25] },
-        { name: '爬虫类', resistance: [25, -50, 25, 0, 0, 0], endurance: 80, wisdom: 40, growth: [1, 1.75, 1, 1.25, 1.25, 1.25] },
-        { name: '妖精', resistance: [25, 25, 25, 25, 25, -50], endurance: 20, wisdom: 60, growth: [1, 1, 1, 1, 1, 1.75] },
-        { name: '不死族', resistance: [-50, 25, 25, 25, -50, 25], endurance: 100, wisdom: 20, growth: [1.75, 1, 1, 1, 1.75, 1] },
+        { name: '节肢动物', resistance: [25, -25, 25, 25, 0, 0], endurance: 100, agility: 70, physical: [-25, 25, 0], wisdom: 40, growth: [1, 1.5, 1, 1, 1.25, 1.25] },
+        { name: '飞禽', resistance: [-25, 0, 25, -50, 0, 0], endurance: 40, agility: 150, physical: [0, 0, 25], wisdom: 50, growth: [1.5, 1.25, 1, 1.75, 1.25, 1.25] },
+        { name: '兽类', resistance: [-25, 25, 0, 25, 0, 0], endurance: 70, agility: 90, physical: [25, 0, 0], wisdom: 20, growth: [1.5, 1, 1.25, 1, 1.25, 1.25] },
+        { name: '天使', resistance: [25, 25, 25, 25, 25, -50], endurance: 50, agility: 50, physical: [-25, -25, -25], wisdom: 80, growth: [1, 1, 1, 1, 1, 1.75] },
+        { name: '魔鬼', resistance: [25, 25, 25, 25, -50, 25], endurance: 40, agility: 90, physical: [-25, -25, -25], wisdom: 50, growth: [1, 1, 1, 1, 1.75, 1] },
+        { name: '龙类', resistance: [25, -50, 25, -25, 0, 0], endurance: 90, agility: 70, physical: [25, 25, 0], wisdom: 60, growth: [1, 1.75, 1, 1.5, 1.25, 1.25] },
+        { name: '元素精灵', resistance: [25, 25, 25, 25, 25, 25], endurance: 40, agility: 90, physical: [-25, 0, -25], wisdom: 120, growth: [1, 1, 1, 1, 1, 1] },
+        { name: '巨人', resistance: [25, 25, -25, -25, 0, 0], endurance: 120, agility: 20, physical: [25, 0, -25], wisdom: 10, growth: [1, 1, 1.5, 1.5, 1.25, 1.25] },
+        { name: '类人类', resistance: [0, 0, 0, 0, 0, -25], endurance: 50, agility: 70, physical: [0, 0, 0], wisdom: 70, growth: [1.25, 1.25, 1.25, 1.25, 1.25, 1.5] },
+        { name: '人形机器人', resistance: [25, 25, -50, 25, 25, 0], endurance: 70, agility: 80, physical: [0, 25, 25], wisdom: 30, growth: [1, 1, 1.75, 1, 1, 1.25] },
+        { name: '爬虫类', resistance: [25, -50, 25, 0, 0, 0], endurance: 80, agility: 60, physical: [25, 25, 0], wisdom: 40, growth: [1, 1.75, 1, 1.25, 1.25, 1.25] },
+        { name: '妖精', resistance: [25, 25, 25, 25, 25, -50], endurance: 20, agility: 120, physical: [-25, 0, 25], wisdom: 60, growth: [1, 1, 1, 1, 1, 1.75] },
+        { name: '不死族', resistance: [-50, 25, 25, 25, -50, 25], endurance: 100, agility: 20, physical: [25, 0, 25], wisdom: 20, growth: [1.75, 1, 1, 1, 1.75, 1] },
     ];
 
     function damageResistanceChance(ratio) {
@@ -2860,6 +2883,180 @@ HVEA_SHARED.ui = {
         };
     }
 
+    // EHWiki Damage#Avoidance_Calculation and Combat#Criticals; probabilities use 0..1.
+    function physicalHitChance(accuracy, evade) {
+        const avoided = accuracy >= evade
+            ? Math.max(1, 20 - 10 * (accuracy - evade) / (evade + 100))
+            : Math.min(80, 20 + 30 * (evade - accuracy) / (accuracy + 100));
+        return 1 - avoided / 100;
+    }
+
+    function calculatePhysicalAttackRates(accuracy, evade) {
+        const hit = physicalHitChance(accuracy, evade);
+        const critRoll = Math.min(0.5, physicalHitChance(accuracy / 2, evade));
+        const repeatCrit = Math.min(0.25, physicalHitChance(accuracy / 4, evade));
+        return {
+            hit, fullHit: hit ** 2, graze: 2 * hit * (1 - hit), miss: (1 - hit) ** 2,
+            crit: hit ** 2 * critRoll, repeatCrit,
+        };
+    }
+
+    function physicalParryChance(accuracy, parry) {
+        return parry > 0 ? damageResistanceChance(parry / (accuracy + 100)) : 0;
+    }
+
+    function getWarriorTargetStats(monster, level) {
+        const scaled = base => {
+            const upgraded = base + 25 * Math.max(6, Math.min(10, base * 0.1));
+            return Math.floor(upgraded * level * 0.01 + level ** 1.076675 * 0.3325);
+        };
+        const endurance = scaled(monster.endurance);
+        return {
+            // Reference estimates; individual monsters can have different ratings.
+            evade: level * 2,
+            parry: level * 2.5,
+            physicalMitigation: 1 - 1000 / (1000 + endurance + scaled(monster.agility) / 2) *
+                (1 - DAMAGE_CHAOS_LEVEL * 0.01),
+            health: (100 + 500 * 10 + endurance * 5) * 2 *
+                (1 + DAMAGE_CHAOS_LEVEL * 0.05) * Math.max(1, (level - 100) * 0.01),
+        };
+    }
+
+    function getTitleDamageBonus(level, isIsekai) {
+        if (isIsekai || level < 1) return 0;
+        // Assume the highest title available at this level has been earned and selected.
+        if (level >= 500) return 12;
+        if (level >= 200) return 10;
+        if (level >= 140) return 8;
+        if (level >= 100) return 6;
+        return (Math.floor(level / 10) + 1) * 0.5;
+    }
+
+    function getArcaneFocusCritBonus(level) {
+        // Assume every Better Arcane Focus tier available at the player's level is trained.
+        const tiers = [[175, 28], [205, 31], [245, 33], [285, 35], [325, 37], [365, 39], [405, 40]];
+        let bonus = 25;
+        for (const [requiredLevel, value] of tiers) {
+            if (level < requiredLevel) break;
+            bonus = value;
+        }
+        return bonus;
+    }
+
+    function getHeartseekerCritBonus(level) {
+        // Assume every Better Heartseeker tier available at the player's level is trained.
+        const tiers = [[140, 28], [185, 31], [225, 34], [265, 36], [305, 38], [345, 39], [385, 40]];
+        let bonus = 25;
+        for (const [requiredLevel, value] of tiers) {
+            if (level < requiredLevel) break;
+            bonus = value;
+        }
+        return bonus;
+    }
+
+    function calculatePhysicalDamage({ damage, accuracy, critMultiplier, type, monster, target,
+        dd, tower, title, heartseeker, spirit, imperil, armorBreak }) {
+        const rates = calculatePhysicalAttackRates(accuracy, target.evade);
+        const physicalMitigation = target.physicalMitigation *
+            (imperil ? 0.5 : 1) * [1, 0.75, 0.5, 0.25][armorBreak];
+        const typeMitigation = type === 3 ? 0 : monster.physical[type] / 100;
+        const bonus = (1 + dd / 100) * (1 + tower * 0.001) * (1 + title / 100) *
+            (heartseeker > 0 ? 1.25 : 1) * (spirit ? 2 : 1);
+        const beforeTypeMitigation = damage * bonus * (1 - physicalMitigation);
+        const normal = beforeTypeMitigation * (1 - typeMitigation);
+        const critBonus = critMultiplier - 1 + heartseeker / 100;
+        // Each successful repeat adds one more crit bonus; the game caps this at nine.
+        const expectedCrits = rates.crit *
+            Array.from({ length: 9 }, (_, index) => rates.repeatCrit ** index).reduce((sum, value) => sum + value, 0);
+        const parryChance = physicalParryChance(accuracy, target.parry ?? 0);
+        return {
+            ...rates, parryChance, physicalMitigation, typeMitigation, beforeTypeMitigation,
+            normal, critical: normal * (1 + critBonus),
+            // Two parry rolls: full damage, half damage, or no damage.
+            landChance: (1 - rates.miss) * (1 - parryChance ** 2),
+            expected: normal * (rates.fullHit + rates.graze * 0.5 + critBonus * expectedCrits) * (1 - parryChance),
+        };
+    }
+
+    function addPhysicalStrikeDamage(result, strikes, monster, imperil) {
+        const components = (strikes || []).map(strike => {
+            const element = strike.element;
+            const mitigation = element === 6 ? 0 :
+                (monster.resistance[element] + 50 * monster.growth[element]) / 100;
+            const remaining = imperil && element !== 6
+                ? Math.max(0, mitigation - (element < 4 ? 0.4 : 0.25)) : mitigation;
+            return {
+                ...strike,
+                damage: result.beforeTypeMitigation * strike.fraction * (1 - remaining),
+            };
+        });
+        const strikeDamage = components.reduce((sum, strike) => sum + strike.damage, 0);
+        return {
+            ...result, strikes: components, strikeDamage,
+            normalTotal: result.normal + strikeDamage,
+            // Strikes share graze/partial parry reductions, but do not multiply with criticals.
+            expected: result.expected + strikeDamage *
+                (result.fullHit + result.graze * 0.5) * (1 - result.parryChance),
+        };
+    }
+
+    function calculatePhysicalAttackExpectation(main, off) {
+        // Treat any nonzero mainhand hit, including a graze or partial parry, as a trigger.
+        const mainExpected = main.expected;
+        const offExpected = off ? main.landChance * off.expected : 0;
+        return { mainExpected, offExpected, total: mainExpected + offExpected };
+    }
+
+    function getPhysicalCriticalOutcomes(result) {
+        const unparried = (1 - result.parryChance) ** 2;
+        return Array.from({ length: 6 }, (_, count) => ({
+            damage: result.normal + count * (result.critical - result.normal) + (result.strikeDamage || 0),
+            probability: unparried * (count === 0 ? result.fullHit - result.crit :
+                result.crit * result.repeatCrit ** (count - 1) * (1 - result.repeatCrit)),
+        }));
+    }
+
+    // https://ehwiki.org/wiki/Skills#Damage; skill multipliers use mainhand attack damage.
+    function calculatePhysicalSkillDamages(style, parameters) {
+        const presets = {
+            onehand: [
+                { name: '盾击', multiplier: 4, type: 0, note: '固定造成打击伤害。' },
+                { name: '要害打击', multiplier: 4, enhanced: 20, enhancedLabel: '眩晕', note: '普通目标 / 眩晕目标。' },
+                { name: '最后的慈悲', multiplier: 10, note: '显示普通伤害；目标流血且生命低于25%时直接击杀，不以此数值表示。' },
+            ],
+            twohand: [
+                { name: '强力顺劈', multiplier: 10, critical: true, note: '必定暴击，显示单重暴击伤害。' },
+                { name: '撕裂打击', multiplier: 4, bypass: true, note: '此次伤害忽略物理缓伤，并施加三层破甲。' },
+                { name: '碎甲打击', multiplier: 3, note: '按当前破甲层数计算，不自动添加破甲。' },
+            ],
+            dual: [
+                { name: '虹膜打击', multiplier: 6 },
+                { name: '背刺', multiplier: 10, enhanced: 20, enhancedLabel: '致盲', note: '普通目标 / 致盲目标。' },
+                { name: '狂乱百裂斩', multiplier: 3, note: '显示单次命中伤害，未汇总多次命中或多个目标的伤害。' },
+            ],
+            niten: [
+                { name: '天空之剑', multiplier: 4, bypass: true, note: '忽略物理缓伤；二天一流没有T2、T3技能。' },
+            ],
+        };
+        return [0, 1, 2].map(index => {
+            const skill = presets[style]?.[index];
+            if (!skill) return null;
+            const result = calculatePhysicalDamage({
+                ...parameters, damage: parameters.damage * skill.multiplier,
+                type: skill.type ?? parameters.type,
+                target: skill.bypass ? { ...parameters.target, physicalMitigation: 0 } : parameters.target,
+            });
+            return {
+                name: skill.name,
+                damage: skill.critical ? result.critical : result.normal,
+                enhancedDamage: skill.enhanced ? result.normal * skill.enhanced / skill.multiplier : null,
+                enhancedLabel: skill.enhancedLabel || '',
+                title: (skill.note || '') + (skill.critical ? '' : '显示完整命中时的非暴击伤害。') +
+                    '不计元素追击、流血及毒伤。',
+            };
+        });
+    }
+
     function scheduleDamagePanelRefresh() {
         if (damagePanelRefreshTimer !== null) return;
         damagePanelRefreshTimer = window.setTimeout(() => {
@@ -2882,6 +3079,14 @@ HVEA_SHARED.ui = {
             '#hv-mage-panel [data-role="mage-resist-verdict"] { text-align:center; font-weight:bold; padding-top:5px; }',
             '#hv-mage-panel [data-role="mage-resist-verdict"][data-pass="true"] { color:#008000; }',
             '#hv-mage-panel [data-role="mage-resist-verdict"][data-pass="false"] { color:#c00; }',
+            '#hv-warrior-panel { position:absolute; bottom:100px; right:100%; margin-right:10px; width:190px; box-sizing:border-box; border:2px solid var(--color-border-default, #5C0D11); border-radius:9px; padding:5px 10px; background:var(--color-bg-default, #EDEBDF); color:var(--color-font-default, #5C0D11); font-size:9pt; line-height:18px; z-index:4; }',
+            '#hv-warrior-panel p { margin:0 0 3px; font-size:10pt; font-weight:bold; }',
+            '#hv-warrior-panel table { width:100%; table-layout:fixed; border-collapse:collapse; font:inherit; }',
+            '#hv-warrior-panel td { padding:1px 0; vertical-align:top; overflow-wrap:anywhere; }',
+            '#hv-warrior-panel td:first-child { width:76px; text-align:right; color:var(--color-font-highlight, #c00); padding-right:4px; font-variant-numeric:tabular-nums; white-space:pre-line; }',
+            '#hv-warrior-panel td:last-child { text-align:left; }',
+            '#hv-warrior-panel[data-dual=true] td:first-child { white-space:nowrap; overflow-wrap:normal; }',
+            '#hv-warrior-panel[data-dual=true] [data-role="warrior-hit"], #hv-warrior-panel[data-dual=true] [data-role="warrior-crit"] { font-size:9px; }',
             '#hv-damage-panel { position:absolute; bottom:100px; display:grid; grid-template-columns:190px minmax(0, 1fr); column-gap:12px; border:2px solid var(--color-border-default, #5C0D11); border-radius:9px; padding:6px 10px; background:var(--color-bg-default, #EDEBDF); color:var(--color-font-default, #5C0D11); width:min(410px, calc(100vw - 16px)); max-height:calc(100vh - 16px); overflow-y:auto; box-sizing:border-box; font-size:9pt; line-height:19px; z-index:4; }',
             '#hv-damage-panel p { grid-column:1 / -1; margin:0 0 4px; font-size:10pt; font-weight:bold; }',
             '#hv-damage-panel label { display:flex; justify-content:space-between; align-items:center; gap:6px; min-height:24px; white-space:nowrap; }',
@@ -2895,6 +3100,22 @@ HVEA_SHARED.ui = {
             '#hv-damage-panel td:first-child { padding-right:10px; }',
             '#hv-damage-panel td:last-child { text-align:right; color:var(--color-font-highlight, #c00); font-variant-numeric:tabular-nums; }',
             '#hv-damage-panel [data-role=damage-error] { color:var(--color-font-highlight, #c00); }',
+            '#hv-damage-panel[data-mode=physical] { width:min(440px, calc(100vw - 16px)); grid-template-columns:150px minmax(0, 1fr); }',
+            '#hv-damage-panel[data-mode=physical] [hidden] { display:none !important; }',
+            '#hv-damage-panel[data-mode=physical] .hv-damage-results table { width:100%; font-size:11px; }',
+            '#hv-damage-panel[data-mode=physical] td:first-child { padding-right:6px; }',
+            '#hv-damage-panel .hv-damage-header { grid-column:1 / -1; display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }',
+            '#hv-damage-panel .hv-damage-header p { margin:0; }',
+            '#hv-damage-panel .hv-damage-tabs { display:inline-flex; border:1px solid var(--color-border-default, #5C0D11); border-radius:3px; overflow:hidden; }',
+            '#hv-damage-panel .hv-damage-tabs button { border:0; border-radius:0; padding:2px 7px; font:inherit; font-size:11px; color:inherit; background:transparent; cursor:pointer; }',
+            '#hv-damage-panel .hv-damage-tabs button[aria-selected=true] { color:var(--color-bg-default, #EDEBDF); background:var(--color-border-default, #5C0D11); }',
+            '#hv-damage-panel .hv-damage-tabs button:focus-visible { outline:2px solid currentColor; outline-offset:-3px; }',
+            '#hv-damage-panel[data-mode=physical] .hv-damage-results { min-height:144px; }',
+            '#hv-damage-panel .hv-critical-results th { font:inherit; text-align:right; padding:0 0 2px; }',
+            '#hv-damage-panel .hv-critical-results th:first-child { text-align:left; }',
+            '#hv-damage-panel .hv-critical-results td:nth-child(2) { text-align:right; color:var(--color-font-highlight, #c00); font-variant-numeric:tabular-nums; padding-right:8px; }',
+            '#hv-damage-panel .hv-critical-results select { width:54px; font-size:11px; }',
+            '@media (max-width:520px) { #hv-damage-panel[data-mode=physical] { grid-template-columns:minmax(0, 1fr); } }',
             '@media (max-width:520px) { #hv-damage-panel { grid-template-columns:minmax(0, 1fr); } #hv-damage-panel p { grid-column:1; } #hv-damage-panel .hv-damage-results { border-top:1px solid var(--color-border-default, #5C0D11); margin-top:6px; padding-top:4px; } }',
         ].join('\n');
         if (typeof GM_addStyle === 'function') GM_addStyle(css);
@@ -2909,7 +3130,7 @@ HVEA_SHARED.ui = {
         const panel = document.getElementById('hv-damage-panel');
         const stats = document.getElementById('eqch_stats');
         if (!panel || !stats) return;
-        const mage = stats.querySelector('#hv-mage-panel');
+        const mage = stats.querySelector('#hv-mage-panel, #hv-warrior-panel');
         if (mage && typeof ResizeObserver === 'function') {
             if (damagePanelMageResizeObserver && damagePanelMageResizeTarget !== mage) {
                 damagePanelMageResizeObserver.disconnect();
@@ -2957,6 +3178,14 @@ HVEA_SHARED.ui = {
             DAMAGE_DD_BONUSES.includes(dd) ? String(dd) : '0';
         panel.querySelector('[data-input="tower"]').value =
             Number.isFinite(tower) ? String(Math.max(0, Math.min(100, tower))) : '0';
+        const armorBreak = panel.querySelector('[data-input="armor-break"]');
+        if (armorBreak && Number.isInteger(saved?.armorBreak) && saved.armorBreak >= 0 && saved.armorBreak <= 3) {
+            armorBreak.value = String(saved.armorBreak);
+        }
+        for (const role of ['imperil', 'spirit']) {
+            const field = panel.querySelector('[data-input="' + role + '"]');
+            if (field && typeof saved?.[role] === 'boolean') field.checked = saved[role];
+        }
     }
 
     function bindDamageSettingsCache(panel) {
@@ -2968,8 +3197,8 @@ HVEA_SHARED.ui = {
         if (panel.dataset.damageSettingsBound) return;
         panel.dataset.damageSettingsBound = '1';
         const save = event => {
-            if (IS_ISEKAI_PAGE) return;
-            if (!event.target.matches('[data-input="dd"], [data-input="tower"]')) return;
+            if (!event.target.matches('[data-input="dd"], [data-input="tower"], [data-input="armor-break"], [data-input="imperil"], [data-input="spirit"]')) return;
+            if (IS_ISEKAI_PAGE && ['dd', 'tower'].includes(event.target.dataset.input)) return;
             const towerField = panel.querySelector('[data-input="tower"]');
             if (event.target === towerField) {
                 const value = Number(towerField.value);
@@ -2984,23 +3213,84 @@ HVEA_SHARED.ui = {
             const dd = Number(panel.querySelector('[data-input="dd"]').value);
             const towerInput = towerField.value.trim();
             const tower = Number(towerInput);
-            if (DAMAGE_DD_BONUSES.includes(dd)) settings.dd = dd;
-            if (towerInput && Number.isFinite(tower) && tower >= 0 && tower <= 100) settings.tower = tower;
+            if (!IS_ISEKAI_PAGE) {
+                if (DAMAGE_DD_BONUSES.includes(dd)) settings.dd = dd;
+                if (towerInput && Number.isFinite(tower) && tower >= 0 && tower <= 100) settings.tower = tower;
+            }
+            const armorBreak = panel.querySelector('[data-input="armor-break"]');
+            if (armorBreak && [0, 1, 2, 3].includes(Number(armorBreak.value))) {
+                settings.armorBreak = Number(armorBreak.value);
+            }
+            for (const role of ['imperil', 'spirit']) {
+                const field = panel.querySelector('[data-input="' + role + '"]');
+                if (field) settings[role] = field.checked;
+            }
             HVEA_SHARED.storage.writeJson(DAMAGE_SETTINGS_KEY, settings);
         };
         panel.addEventListener('input', save);
         panel.addEventListener('change', save);
     }
 
-    function ensureDamagePanelNode(stats) {
+    function getWarriorDamagePanelHtml() {
+        const rows = [
+            ['health', '怪物血量'],
+            ['evade', '闪避 / 招架'],
+            ['mitigation', '物理缓伤'],
+            ['main-type', '主手类型缓伤'],
+            ['main-normal', '主手伤害'],
+            ['skill-1', 'T1 伤害'],
+            ['skill-2', 'T2 伤害'],
+            ['skill-3', 'T3 伤害'],
+        ];
+        return '<div class="hv-damage-header"><p>伤害计算</p>' +
+            '<div class="hv-damage-tabs" role="tablist" aria-label="伤害视图">' +
+            '<button type="button" role="tab" data-damage-view="normal" aria-selected="true">常规</button>' +
+            '<button type="button" role="tab" data-damage-view="critical" aria-selected="false">暴击</button>' +
+            '</div></div><div class="hv-damage-settings">' +
+            '<label>怪物种类<select data-input="monster">' +
+            DAMAGE_MONSTERS.map((monster, index) =>
+                '<option value="' + index + '">' + monster.name + '</option>').join('') +
+            '</select></label>' +
+            '<label>怪物等级<input data-input="level" type="number" min="1" max="9999" step="1"></label>' +
+            '<label>DD<select data-input="dd">' +
+            DAMAGE_DD_BONUSES.map((bonus, level) =>
+                '<option value="' + bonus + '">DD' + level + ' (' + bonus + '%)</option>').join('') +
+            '</select></label>' +
+            '<label>塔楼层数<input data-input="tower" type="number" min="0" max="100" step="1" value="0"></label>' +
+            '<label>破甲层数<select data-input="armor-break">' +
+            [0, 1, 2, 3].map(value => '<option value="' + value + '">' + value + '</option>').join('') +
+            '</select></label>' +
+            '<div class="hv-damage-toggles"><label>IMP<input data-input="imperil" type="checkbox" checked></label>' +
+            '<label>灵动<input data-input="spirit" type="checkbox"></label></div>' +
+            '</div><div class="hv-damage-results"><table data-damage-content="normal"><tbody>' +
+            rows.map(([role, label]) => '<tr><td>' + label +
+                '</td><td data-role="physical-' + role + '">--</td></tr>').join('') +
+            '</tbody></table><table class="hv-critical-results" data-damage-content="critical" hidden>' +
+            '<thead><tr><th><span data-role="critical-hand-label">主手</span>' +
+            '<select data-input="critical-hand" aria-label="暴击计算武器" hidden>' +
+            '<option value="main">主手</option><option value="off">副手</option></select></th>' +
+            '<th>伤害</th><th title="按该手每次出手计算，只统计完整命中且未被招架时恰好该重数的概率。不含擦伤、未命中、部分或完全招架及6至9重暴击；副手未乘主手触发概率。">概率</th></tr></thead><tbody>' +
+            Array.from({ length: 6 }, (_, count) => '<tr><td>' + (count ? count + '重暴击' : '未暴击') +
+                '</td><td data-role="physical-crit-' + count + '-damage">--</td>' +
+                '<td data-role="physical-crit-' + count + '-chance">--</td></tr>').join('') +
+            '</tbody></table><div data-role="damage-error"></div></div>';
+    }
+
+    function ensureDamagePanelNode(stats, warrior = false) {
+        const mode = warrior ? 'physical' : 'spell';
         let panel = document.getElementById('hv-damage-panel');
+        if (panel && panel.dataset.mode !== mode) {
+            panel.remove();
+            panel = null;
+        }
         if (panel) {
             bindDamageSettingsCache(panel);
             return panel;
         }
         panel = document.createElement('div');
         panel.id = 'hv-damage-panel';
-        panel.innerHTML =
+        panel.dataset.mode = mode;
+        panel.innerHTML = warrior ? getWarriorDamagePanelHtml() :
             '<p>伤害计算</p>' +
             '<div class="hv-damage-settings">' +
             '<label>怪物种类<select data-input="monster">' +
@@ -3017,10 +3307,10 @@ HVEA_SHARED.ui = {
             '</select></label>' +
             '<label>塔楼层数<input data-input="tower" type="number" min="0" max="100" step="1" value="0"></label>' +
             '<div class="hv-damage-toggles"><label>IMP<input data-input="imperil" type="checkbox" checked></label>' +
-            '<label>暴击<input data-input="crit" type="checkbox"></label></div>' +
+            '<label title="默认开启奥术专注；暴伤加成按玩家等级可解锁的最高强化计算，假定已投入对应技能点。">暴击<input data-input="crit" type="checkbox"></label></div>' +
             '</div><div class="hv-damage-results">' +
             '<table><tbody>' +
-            '<tr><td>元素 / RF</td><td data-role="damage-element">--</td></tr>' +
+            '<tr><td>元素 / PF</td><td data-role="damage-element">--</td></tr>' +
             '<tr><td>魔法 / 元素缓伤</td><td data-role="damage-mitigation">--</td></tr>' +
             '<tr><td>怪物抵抗值</td><td data-role="damage-resist-value">--</td></tr>' +
             '<tr><td>抵抗倍率 / 概率</td><td data-role="damage-resist">--</td></tr>' +
@@ -3030,6 +3320,23 @@ HVEA_SHARED.ui = {
             '<tr><td>T2 缓伤后</td><td data-role="damage-t2-raw">--</td></tr>' +
             '<tr><td>T2 最终期望</td><td data-role="damage-t2">--</td></tr>' +
             '</tbody></table><div data-role="damage-error"></div></div>';
+        if (warrior) {
+            panel.addEventListener('click', event => {
+                const tab = event.target.closest('[data-damage-view]');
+                if (!tab) return;
+                for (const button of panel.querySelectorAll('[data-damage-view]')) {
+                    button.setAttribute('aria-selected', String(button === tab));
+                }
+                for (const content of panel.querySelectorAll('[data-damage-content]')) {
+                    content.hidden = content.dataset.damageContent !== tab.dataset.damageView;
+                }
+                positionDamagePanel();
+            });
+            panel.querySelector('[data-role="physical-main-normal"]').title =
+                '称号加成按玩家等级可获得的最高称号计算，假定已通关对应竞技场并使用该称号；异世界不计称号加成。';
+            panel.querySelector('[data-role="physical-evade"]').title =
+                '闪避按怪物等级×2、招架按等级×2.5估算；不同怪物的实际数值可能不同。两次招架判定中一次成功减半，两次成功归零。暂不计战斗中的反招架加成。';
+        }
         panel.querySelector('[data-input=level]').value = getPlayerLevel();
         restoreDamageSettings(panel);
         bindDamageSettingsCache(panel);
@@ -3074,17 +3381,42 @@ HVEA_SHARED.ui = {
         return panel;
     }
 
-    function ensureDamagePanel() {
+    function ensureWarriorStatsPanel(stats) {
+        let panel = stats.querySelector('#hv-warrior-panel');
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.id = 'hv-warrior-panel';
+            panel.innerHTML = '<p>战士面板数据</p><table><tbody>' +
+                [
+                    ['configuration', '武器配置'],
+                    ['type', '攻击类型'],
+                    ['hit', '单次命中率'],
+                    ['crit', '暴击率'],
+                    ['healing', '治疗加成'],
+                    ['counter-resist', '减益魔法反抵抗'],
+                ].map(([role, label]) => '<tr><td data-role="warrior-' + role +
+                    '">--</td><td>' + label + '</td></tr>').join('') +
+                '</tbody></table>';
+            panel.querySelector('[data-role="warrior-crit"]').title =
+                '完整命中后，以一半命中值判定首次暴击；目标采用伤害计算区的设置。';
+            stats.appendChild(panel);
+        }
+        return panel;
+    }
+
+    function ensureDamagePanel(warrior = false) {
         const stats = document.getElementById('eqch_stats');
         if (!stats) return null;
         ensureDamagePanelStyle();
-        ensureMageStatsPanel(stats);
-        const panel = ensureDamagePanelNode(stats);
+        if (warrior) ensureWarriorStatsPanel(stats);
+        else ensureMageStatsPanel(stats);
+        const panel = ensureDamagePanelNode(stats, warrior);
         document.getElementById('hv-macc-panel')?.remove();
         if (!damagePanelObserver && typeof MutationObserver === 'function') {
             damagePanelObserver = new MutationObserver(() => {
                 positionDamagePanel();
                 renderMageStatsPanel();
+                renderWarriorStatsPanel();
             });
             damagePanelObserver.observe(stats, { childList: true, subtree: true });
         }
@@ -3224,6 +3556,127 @@ HVEA_SHARED.ui = {
         return getLivePanelValue(['Effective Proficiency', '熟练度'], [name, chineseName]);
     }
 
+    function getWarriorWeaponConfiguration() {
+        const slots = activeUpgradeSimulation?.equipSlots || getEquipmentData();
+        const main = slots.find(slot => Number(slot.slotId) === 1 && slot.available);
+        const off = slots.find(slot => Number(slot.slotId) === 2 && slot.available);
+        const mainClass = resolveWeaponClass(main);
+        const offClass = resolveWeaponClass(off);
+        if (!['onehand', 'twohand'].includes(mainClass)) return null;
+        if (mainClass === 'twohand' && offClass === 'onehand') {
+            return { label: '二天一流', style: 'niten', main, off };
+        }
+        if (mainClass === 'onehand' && offClass === 'onehand') {
+            return { label: '双持', style: 'dual', main, off };
+        }
+        return {
+            label: mainClass === 'twohand' ? '双手' : offClass === 'shield' ? '单手＋盾牌' : '单手',
+            style: mainClass,
+            main,
+            off: null,
+        };
+    }
+
+    function getPhysicalPanelValue(section, title, chineseNames) {
+        const enRow = findEnglishPanelRow(section, title);
+        if (enRow) {
+            const liveItem = findLiveRowByEnglishRow(section, enRow);
+            return liveItem ? readLiveRowIncrement(liveItem).value : enRow.value;
+        }
+        return getLivePanelValue(
+            section === 'offhand' ? ['Offhand Attack', '副手攻击'] : ['Mainhand Attack', '主手攻击'],
+            [title, ...chineseNames]
+        );
+    }
+
+    function getPhysicalAttackType(section, slot) {
+        const types = [
+            ['Crushing Damage', '打击', ['打击伤害', '敲击伤害']],
+            ['Slashing Damage', '斩击', ['斩击伤害']],
+            ['Piercing Damage', '刺击', ['刺击伤害']],
+            ['Void Damage', '虚空', ['虚空伤害']],
+        ];
+        for (const [name, label, chineseNames] of types) {
+            if (findEnglishPanelRow(section, name) ||
+                findLivePanelRow(
+                    section === 'offhand' ? ['Offhand Attack', '副手攻击'] : ['Mainhand Attack', '主手攻击'],
+                    [name, ...chineseNames]
+                )) return label;
+        }
+        const stat = slot?.stats?.find(item => types.some(([name]) => name === item.title));
+        return types.find(([name]) => name === stat?.title)?.[1] || '--';
+    }
+
+    function getWarriorDamageSettings() {
+        const panel = document.querySelector('#hv-damage-panel[data-mode="physical"]');
+        if (!panel) return null;
+        const field = role => panel.querySelector('[data-input="' + role + '"]');
+        const number = role => field(role).value.trim() === '' ? NaN : Number(field(role).value);
+        const monsterIndex = number('monster');
+        const monster = DAMAGE_MONSTERS[monsterIndex];
+        const level = number('level');
+        const settings = {
+            dd: number('dd'), tower: number('tower'), title: getTitleDamageBonus(getPlayerLevel(), IS_ISEKAI_PAGE),
+            heartseeker: getHeartseekerCritBonus(getPlayerLevel()), armorBreak: number('armor-break'),
+            imperil: field('imperil').checked, spirit: field('spirit').checked,
+        };
+        if (!Number.isInteger(monsterIndex) || !monster || !Number.isInteger(level) || level < 1 || level > 9999 ||
+            !DAMAGE_DD_BONUSES.includes(settings.dd) || !Number.isInteger(settings.tower) ||
+            settings.tower < 0 || settings.tower > 100 ||
+            ![0, 1, 2, 3].includes(settings.armorBreak)) return null;
+        return { ...settings, monster, level, target: getWarriorTargetStats(monster, level) };
+    }
+
+    function getPhysicalWeaponDamage(section, slot, settings) {
+        const typeLabel = getPhysicalAttackType(section, slot);
+        const type = ['打击', '斩击', '刺击', '虚空'].indexOf(typeLabel);
+        if (type < 0) return null;
+        const title = ['Crushing Damage', 'Slashing Damage', 'Piercing Damage', 'Void Damage'][type];
+        const damage = getPhysicalPanelValue(section, title, [typeLabel + '伤害']);
+        const accuracy = getPhysicalPanelValue(section, 'Accuracy', ['命中']);
+        const critMultiplier = getPhysicalPanelValue(section, 'Crit Multiplier', ['暴击伤害', '暴击倍率']);
+        if (![damage, accuracy, critMultiplier].every(Number.isFinite) ||
+            damage < 0 || accuracy < 0 || critMultiplier < 1) return null;
+        const result = calculatePhysicalDamage({ damage, accuracy, critMultiplier, type, ...settings });
+        return { ...addPhysicalStrikeDamage(result, slot?.strikes, settings.monster, settings.imperil),
+            damage, accuracy, critMultiplier, type, typeLabel };
+    }
+
+    function renderWarriorStatsPanel() {
+        const panel = document.getElementById('hv-warrior-panel');
+        if (!panel) return;
+        const configuration = getWarriorWeaponConfiguration();
+        const set = (role, value) => {
+            const node = panel.querySelector('[data-role="warrior-' + role + '"]');
+            if (node.textContent !== value) node.textContent = value;
+        };
+        const percent = value => Number.isFinite(value) ? value.toFixed(2) + '%' : '--';
+        const settings = getWarriorDamageSettings();
+        const weaponValue = getter => {
+            const main = getter('mainhand', configuration?.main);
+            if (!configuration?.off) return main;
+            const off = getter('offhand', configuration.off);
+            return main === '--' && off === '--' ? '--' : main + ' / ' + off;
+        };
+        panel.dataset.dual = String(Boolean(configuration?.off));
+        set('configuration', configuration?.label || '--');
+        set('type', weaponValue((section, slot) => getPhysicalAttackType(section, slot)));
+        for (const role of ['hit', 'crit']) {
+            set(role, weaponValue(section => {
+                const accuracy = getPhysicalPanelValue(section, 'Accuracy', ['命中']);
+                if (!settings || !Number.isFinite(accuracy) || accuracy < 0) return '--';
+                return percent(calculatePhysicalAttackRates(accuracy, settings.target.evade)[role] * 100);
+            }));
+        }
+        const level = getPlayerLevel();
+        const supportive = getOtherMagicProficiencyWithIncrements('Supportive', '增益');
+        const deprecating = getOtherMagicProficiencyWithIncrements('Deprecating', '减益');
+        const suppFactor = Number.isFinite(supportive) ? Math.min(1, supportive / level - 1) : null;
+        const deprFactor = Number.isFinite(deprecating) ? Math.max(0, Math.min(1, deprecating / level - 1)) : null;
+        set('healing', percent(suppFactor === null ? null : suppFactor * (suppFactor > 0 ? 50 : 20)));
+        set('counter-resist', percent(deprFactor === null ? null : getCurrentCounterResist() + deprFactor * 50));
+    }
+
     function renderMageStatsPanel() {
         const rows = document.querySelectorAll('#hv-mage-panel table tr');
         if (rows.length < 6) return;
@@ -3277,6 +3730,11 @@ HVEA_SHARED.ui = {
     function renderDamagePanel() {
         const panel = document.getElementById('hv-damage-panel');
         if (!panel || !panel.isConnected) return;
+        if (panel.dataset.mode === 'physical') {
+            renderWarriorDamagePanel();
+            renderWarriorStatsPanel();
+            return;
+        }
         const input = role => panel.querySelector('[data-input="' + role + '"]');
         const output = (role, value) => { panel.querySelector('[data-role="damage-' + role + '"]').textContent = value; };
         const num = role => input(role).value.trim() === '' ? NaN : Number(input(role).value);
@@ -3291,7 +3749,10 @@ HVEA_SHARED.ui = {
         const macc = getMagicAccuracyWithIncrements();
         const cr = getCurrentCounterResist();
         const proficiency = getMagicProficiencyWithIncrements(selectedName);
-        const critMultiplier = input('crit').checked ? getMagicCritMultiplierWithIncrements() : 1;
+        const panelCritMultiplier = input('crit').checked ? getMagicCritMultiplierWithIncrements() : 1;
+        const critMultiplier = input('crit').checked
+            ? (Number.isFinite(panelCritMultiplier) ? panelCritMultiplier + getArcaneFocusCritBonus(getPlayerLevel()) / 100 : NaN)
+            : 1;
         const valid = monster && element && Number.isInteger(level) && level > 0 &&
             [mdb, edb, proficiency, macc, cr, dd, tower, critMultiplier].every(Number.isFinite) &&
             critMultiplier > 0 &&
@@ -3323,6 +3784,81 @@ HVEA_SHARED.ui = {
         output('t3', damage(result.t3Expected));
         output('t2-raw', damage(result.t2));
         output('t2', damage(result.t2Expected));
+        positionDamagePanel();
+    }
+
+    function renderWarriorDamagePanel() {
+        const panel = document.querySelector('#hv-damage-panel[data-mode="physical"]');
+        if (!panel) return;
+        const configuration = getWarriorWeaponConfiguration();
+        const settings = getWarriorDamageSettings();
+        const set = (role, text) => {
+            const node = panel.querySelector('[data-role="physical-' + role + '"]');
+            if (node.textContent !== text) node.textContent = text;
+        };
+        const error = panel.querySelector('[data-role="damage-error"]');
+        const offhand = Boolean(configuration?.off);
+        const handInput = panel.querySelector('[data-input="critical-hand"]');
+        handInput.hidden = !offhand;
+        panel.querySelector('[data-role="critical-hand-label"]').hidden = offhand;
+        if (!offhand) handInput.value = 'main';
+        for (const [role, label] of [['type', '类型缓伤'], ['normal', '平A伤害']]) {
+            const labelNode = panel.querySelector('[data-role="physical-main-' + role + '"]').previousElementSibling;
+            const text = (offhand ? '主/副手' : '主手') + label;
+            if (labelNode.textContent !== text) labelNode.textContent = text;
+        }
+        const main = configuration && settings
+            ? getPhysicalWeaponDamage('mainhand', configuration.main, settings) : null;
+        const off = offhand && settings
+            ? getPhysicalWeaponDamage('offhand', configuration.off, settings) : null;
+        if (!main || (offhand && !off)) {
+            for (const node of panel.querySelectorAll('[data-role^="physical-"]')) {
+                if (node.textContent !== '--') node.textContent = '--';
+                node.removeAttribute('title');
+            }
+            const message = !settings ? '请检查怪物或参数输入' : '未读取到完整物理攻击数据';
+            if (error.textContent !== message) error.textContent = message;
+            return;
+        }
+        if (error.textContent) error.textContent = '';
+        const amount = value => Math.round(value).toLocaleString('en-US');
+        const percent = value => (value * 100).toFixed(1) + '%';
+        set('health', amount(settings.target.health));
+        set('evade', settings.target.evade.toFixed(1) + ' / ' + settings.target.parry.toFixed(1));
+        set('mitigation', off && main.physicalMitigation !== off.physicalMitigation
+            ? '主' + percent(main.physicalMitigation) + '／副' + percent(off.physicalMitigation)
+            : percent(main.physicalMitigation));
+        const typeText = result => result.typeLabel + ' ' +
+            (result.type === 3 ? '无' : (result.typeMitigation * 100).toFixed(0) + '%');
+        const combined = format => format(main) + (off ? ' / ' + format(off) : '');
+        set('main-type', combined(typeText));
+        const breakdown = (result, body) => '本体伤害 ' + amount(body) +
+            result.strikes.map(strike => ' + ' + strike.label + ' ' + amount(strike.damage)).join('');
+        set('main-normal', combined(result => amount(result.normalTotal)));
+        panel.querySelector('[data-role="physical-main-normal"]').title =
+            '主手：' + breakdown(main, main.normal) +
+            (off ? '\n副手：' + breakdown(off, off.normal) : '');
+        const skills = calculatePhysicalSkillDamages(configuration.style, {
+            damage: main.damage, accuracy: main.accuracy, critMultiplier: main.critMultiplier,
+            type: main.type, ...settings,
+        });
+        for (const [index, skill] of skills.entries()) {
+            const role = 'skill-' + (index + 1);
+            const node = panel.querySelector('[data-role="physical-' + role + '"]');
+            node.previousElementSibling.textContent = 'T' + (index + 1) + ' ' + (skill?.name || '伤害');
+            node.title = skill?.title || '当前武器配置没有此技能。';
+            set(role, skill ? amount(skill.damage) +
+                (skill.enhancedDamage !== null ? ' / ' + amount(skill.enhancedDamage) +
+                    (skill.enhancedLabel ? '(' + skill.enhancedLabel + ')' : '') : '') : '--');
+        }
+        const criticalResult = handInput.value === 'off' && off ? off : main;
+        for (const [count, outcome] of getPhysicalCriticalOutcomes(criticalResult).entries()) {
+            set('crit-' + count + '-damage', amount(outcome.damage));
+            panel.querySelector('[data-role="physical-crit-' + count + '-damage"]').title =
+                breakdown(criticalResult, criticalResult.normal + count *
+                    (criticalResult.critical - criticalResult.normal));
+            set('crit-' + count + '-chance', (outcome.probability * 100).toFixed(2) + '%');
+        }
         positionDamagePanel();
     }
 
@@ -3400,14 +3936,22 @@ HVEA_SHARED.ui = {
 
     async function refreshDamagePanel() {
         if (!isEquipmentPage()) return;
-        if (!isMageBuild()) {
-            document.getElementById('hv-damage-panel')?.remove();
+        const mage = isMageBuild();
+        const warrior = !mage && getWarriorWeaponConfiguration();
+        if (!mage) {
             document.getElementById('hv-mage-panel')?.remove();
+        } else {
+            document.getElementById('hv-warrior-panel')?.remove();
+        }
+        if (!mage && !warrior) {
+            document.getElementById('hv-damage-panel')?.remove();
+            document.getElementById('hv-warrior-panel')?.remove();
             return;
         }
-        const panel = ensureDamagePanel();
+        const panel = ensureDamagePanel(Boolean(warrior));
         if (!panel) return;
         renderMageStatsPanel();
+        renderWarriorStatsPanel();
         renderDamagePanel();
         if (damagePanelRefreshRequest) return damagePanelRefreshRequest;
         const generation = damagePanelGeneration;
@@ -3417,6 +3961,7 @@ HVEA_SHARED.ui = {
                 await ensureEnglishStatsPanel();
                 if (generation === damagePanelGeneration && isEquipmentPage() && panel.isConnected) {
                     renderMageStatsPanel();
+                    renderWarriorStatsPanel();
                     renderDamagePanel();
                 }
             }
@@ -5702,6 +6247,7 @@ HVEA_SHARED.ui = {
     document.getElementById('hv-macc-panel')?.remove();
     document.getElementById('hv-damage-panel')?.remove();
     document.getElementById('hv-mage-panel')?.remove();
+    document.getElementById('hv-warrior-panel')?.remove();
     if (damagePanelRefreshTimer !== null) {
       window.clearTimeout(damagePanelRefreshTimer);
       damagePanelRefreshTimer = null;
