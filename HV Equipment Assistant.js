@@ -2,7 +2,7 @@
 // @name         HV 装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.5.0
+// @version      1.6.0
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -135,11 +135,12 @@ const HVEA_EASTER_EGG_PRESETS = Object.freeze([
   '🍊直到大地变成一颗酸橙🍊',
   '⚡天雷滚滚，你想往哪里逃！⚡',
   '⚡三元归一剑贯魑魅，一点浩气霆击祸祟！⚡',
-  '✋😡✋对名P来✋😡✋对名P来✋😡✋对名P来',
   '有什么内部消息别瞒着兄弟啊',
   '苦痛啊，你便是我的唯一...',
   '我 一会 直看着你…👁️👁️👁️',
   '一切都好可怕！！！游戏变困难了！',
+  '从水下第一个生命的萌芽开始……',
+  '行军。行军。摄取。繁殖。摄取。抹除。再生。行军。',
   '爱丽丝爱丽丝爱丽・ｿ關ｽ蜈･逋ｽ蜈皮噪豢樒ｩｴ荵倶ｸｭ',
   '不知道动了谁的蛋糕、蛋挞、慕斯、驴打滚、桂花糖芋苗、蝴蝶酥、双皮奶、椰汁西米糕',
   '忒乐忒乐邦邦娜巴拉尼，卡特克贝贝呗，普啾噔得了噔得了嘛哈嘛哈，尼哈啦尼哈啦喵，忒嘣了忒嘣了卡拉卡拉灵，夏喀勒哦哦哦哦，啊喔汪汪喵喵喵喵哦💥💥',
@@ -207,9 +208,11 @@ const HVEA_EASTER_EGG_PRESETS = Object.freeze([
   '不要信让你卖杯子的，他就是怕你出对名好起来！',
   '你甘心吗? 你甘心这个赛季一次对名都没出过吗?',
   '←杯子 人 垃圾L 对名P对名P对名P对名P对名P',
+  '对名装！我命令你给我出来！',
   'warding滚出hv',
   'protection也滚出hv',
   '啊？群友都没出过对名P吗？',
+  '✋😡✋对名P来✋😡✋对名P来✋😡✋对名P来',
   '拍卖场上无父子，干就完了！',
   '警钟长鸣 单价1.2M买入19个秘银袋转手单价1.4M卖',
   '太合适了朋友，感觉这么好的装备就是为你准备的',
@@ -1084,7 +1087,7 @@ HVEA_SHARED.ui = {
     greater: 20,
     lesser: 12,
   });
-  const CHARM_INFO_STORAGE_KEY = 'hv-charm-info-cache-v3';
+  const CHARM_INFO_STORAGE_KEY = 'hv-charm-info-cache-v4';
   const CHARM_INFO_CACHE_TTL = 5 * 60 * 1000;
   const CHARM_INFO_CACHE = new Map();
   const CHARM_INFO_CACHE_AT = new Map();
@@ -1124,25 +1127,91 @@ HVEA_SHARED.ui = {
   }
 
   const CHARM_DEFS = Object.freeze({
+    featherweight: Object.freeze({
+      label: '羽毛',
+      category: 'general',
+      sizes: {
+        lesser: { any: { compromisePercent: 30, compromiseFlat: 5 } },
+        greater: { any: { compromisePercent: 50, compromiseFlat: 10 } },
+      },
+    }),
+    hollowforged: Object.freeze({
+      label: '虚空升华',
+      category: 'warrior',
+      sizes: {
+        lesser: { any: { voidDamage: true, strikeElement: 6, strikePercent: 30 } },
+        greater: { any: { voidDamage: true, strikeElement: 6, strikePercent: 50 } },
+      },
+    }),
+    voidseeker: Object.freeze({
+      label: '虚空祝福',
+      category: 'warrior',
+      sizes: {
+        lesser: { any: { voidDamage: true, accuracyPercent: 20, accuracyFlat: 10, strikeElement: 6, strikePercent: 30 } },
+        greater: { any: { voidDamage: true, accuracyPercent: 30, accuracyFlat: 10, strikeElement: 6, strikePercent: 50 } },
+      },
+    }),
+    butcher: Object.freeze({
+      label: '攻击',
+      category: 'warrior',
+      sizes: {
+        lesser: { any: { attackDamagePercent: 6 } },
+        greater: { any: { attackDamagePercent: 10 } },
+      },
+    }),
+    swiftness: Object.freeze({
+      label: '攻速',
+      category: 'warrior',
+      sizes: {
+        lesser: { any: { attackSpeed: 5 } },
+        greater: { any: { attackSpeed: 7.5 } },
+      },
+    }),
+    fatality: Object.freeze({
+      label: '攻爆伤',
+      category: 'warrior',
+      sizes: {
+        lesser: { any: { attackCritDamage: 0.06 } },
+        greater: { any: { attackCritDamage: 0.1 } },
+      },
+    }),
+    overpower: Object.freeze({
+      label: '反招架',
+      category: 'warrior',
+      sizes: {
+        lesser: { any: { counterParry: 12 } },
+        greater: { any: { counterParry: 20 } },
+      },
+    }),
+    ...Object.fromEntries([
+      ['firestrike', '火焰打击'], ['coldstrike', '冰霜打击'], ['lightningstrike', '闪电打击'],
+      ['windstrike', '疾风打击'], ['holystrike', '神圣打击'], ['darkstrike', '黑暗打击'],
+    ].map(([type, label], element) => [type, Object.freeze({
+      label, category: 'warrior',
+      sizes: {
+        lesser: { any: { strikeElement: element, strikePercent: 30 } },
+        greater: { any: { strikeElement: element, strikePercent: 50 } },
+      },
+    })])),
     archmage: Object.freeze({
-      label: '武器魔法伤害',
-      category: 'attack',
+      label: '法伤',
+      category: 'mage',
       sizes: Object.freeze({
         lesser: Object.freeze({
           staff: { weaponMagicDamage: 6, percent: true },
-          onehand: { weaponMagicDamage: level => Math.ceil(level / 5) + 6 },
-          twohand: { weaponMagicDamage: level => Math.ceil(level / 5) * 2.12 },
+          onehand: { weaponMagicDamage: 6, percent: true, weaponMagicBase: level => Math.ceil(level / 5) },
+          twohand: { weaponMagicDamage: 6, percent: true, weaponMagicBase: level => Math.ceil(level / 5) * 2 },
         }),
         greater: Object.freeze({
           staff: { weaponMagicDamage: 10, percent: true },
-          onehand: { weaponMagicDamage: level => Math.ceil(level / 3) * 1.1 },
-          twohand: { weaponMagicDamage: level => Math.ceil(level / 3) * 2.2 },
+          onehand: { weaponMagicDamage: 10, percent: true, weaponMagicBase: level => Math.ceil(level / 3) },
+          twohand: { weaponMagicDamage: 10, percent: true, weaponMagicBase: level => Math.ceil(level / 3) * 2 },
         }),
       }),
     }),
     economizer: Object.freeze({
-      label: '魔力消耗减免',
-      category: 'attack',
+      label: '节能',
+      category: 'mage',
       sizes: Object.freeze({
         lesser: Object.freeze({
           onehand: { manaCostReduction: 10 },
@@ -1157,16 +1226,16 @@ HVEA_SHARED.ui = {
       }),
     }),
     spellweaver: Object.freeze({
-      label: '施法速度',
-      category: 'attack',
+      label: '施法加速',
+      category: 'mage',
       sizes: Object.freeze({
         lesser: { any: { castSpeed: 5 } },
         greater: { any: { castSpeed: 7.5 } },
       }),
     }),
     annihilator: Object.freeze({
-      label: '魔法暴击伤害',
-      category: 'attack',
+      label: '法爆伤',
+      category: 'mage',
       sizes: Object.freeze({
         lesser: { any: { critDamage: 0.06 } },
         greater: { any: { critDamage: 0.1 } },
@@ -1174,7 +1243,7 @@ HVEA_SHARED.ui = {
     }),
     penetrator: Object.freeze({
       label: '反抵抗',
-      category: 'attack',
+      category: 'mage',
       sizes: Object.freeze({
         lesser: { any: { counterResist: 12 } },
         greater: { any: { counterResist: 20 } },
@@ -1182,7 +1251,7 @@ HVEA_SHARED.ui = {
     }),
     aether: Object.freeze({
       label: '以太',
-      category: 'attack',
+      category: 'mage',
       sizes: Object.freeze({
         lesser: Object.freeze({
           any: { maccPercent: 20, maccFlat: 10 },
@@ -1207,25 +1276,75 @@ HVEA_SHARED.ui = {
       }),
     }),
     capacitor: Object.freeze({
-      label: '魔力',
+      label: '法力',
       category: 'defense',
       sizes: Object.freeze({
         lesser: { any: { maxManaPercent: 6 } },
         greater: { any: { maxManaPercent: 10 } },
       }),
     }),
+    ...Object.fromEntries([
+      ['fireproof', '耐热', 'Fire'], ['coldproof', '抗寒', 'Cold'],
+      ['lightningproof', '绝缘', 'Elec'], ['windproof', '防风', 'Wind'],
+      ['holyproof', '驱圣', 'Holy'], ['darkproof', '驱暗', 'Dark'],
+    ].map(([type, label, mitigationElement]) => [type, Object.freeze({
+      label, category: 'defense',
+      sizes: {
+        lesser: { any: { mitigationElement, elementalMitigation: 12 } },
+        greater: { any: { mitigationElement, elementalMitigation: 20 } },
+      },
+    })])),
   });
 
   const CHARM_NAME_ALIASES = Object.freeze({
-    archmage: ['法伤'],
-    economizer: ['节能', '魔力消耗削减'],
-    spellweaver: ['施法加速'],
-    annihilator: ['法暴伤', '魔法暴击'],
+    featherweight: ['羽毛'],
+    hollowforged: ['虚空升华'],
+    voidseeker: ['虚空', '虚空祝福'],
+    butcher: ['攻击'],
+    swiftness: ['攻速'],
+    fatality: ['攻爆伤'],
+    overpower: ['反招架'],
+    firestrike: ['火焰打击'],
+    coldstrike: ['冰霜打击'],
+    lightningstrike: ['闪电打击', 'Elec Strike'],
+    windstrike: ['疾风打击'],
+    holystrike: ['神圣打击'],
+    darkstrike: ['黑暗打击'],
+    archmage: ['法伤', '武器魔法伤害'],
+    economizer: ['节能', '魔力消耗削减', '魔力消耗减免'],
+    spellweaver: ['施法加速', '施法速度'],
+    annihilator: ['法暴伤', '魔法暴击', '魔法暴击伤害'],
     penetrator: ['反抵抗'],
     aether: ['以太'],
     juggernaut: ['生命'],
-    capacitor: ['魔力'],
+    capacitor: ['魔力', '法力'],
+    fireproof: ['耐热', '火焰防护'],
+    coldproof: ['抗寒', '冰霜防护'],
+    lightningproof: ['绝缘', '闪电防护'],
+    windproof: ['防风', '疾风防护'],
+    holyproof: ['驱圣', '神圣防护', '神圣抵御'],
+    darkproof: ['驱暗', '黑暗防护', '黑暗抵御'],
   });
+
+  const CHARM_CATEGORIES = Object.freeze([
+    { key: 'general', label: '通用' },
+    { key: 'warrior', label: '战士' },
+    { key: 'mage', label: '法师' },
+    { key: 'defense', label: '防御' },
+  ]);
+
+  function isCharmAllowedForSlot(type, key, slot) {
+    const category = CHARM_DEFS[type]?.category;
+    if (!category || !slot?.available) return false;
+    if (category === 'general') return true;
+    const weaponClass = resolveWeaponClass(slot);
+    if (weaponClass === 'onehand' || weaponClass === 'twohand') {
+      return category === 'warrior' || category === 'mage';
+    }
+    if (weaponClass === 'staff') return category === 'mage';
+    return category === 'defense' && (weaponClass === 'shield' ||
+      ['helmet', 'body', 'hands', 'legs', 'feet'].includes(key));
+  }
 
   const CHARM_SLOT_KEY_BY_ID = Object.freeze({
     1: 'main',
@@ -1289,7 +1408,8 @@ HVEA_SHARED.ui = {
       && (weaponClass === 'twohand' || weaponClass === 'staff')
       && (name.endsWith(' of battlecaster') || name.endsWith(' of focus'))
       ? 'onehand' : weaponClass;
-    const cacheKey = `${type}|${size}|${effectWeaponClass}|${Number(level) || 0}`;
+    const effectiveLevel = type === 'archmage' ? Number(slot?.equipmentLevel ?? level) : Number(level);
+    const cacheKey = `${type}|${size}|${effectWeaponClass}|${effectiveLevel || 0}`;
     if (CHARM_EFFECT_CACHE.has(cacheKey)) return CHARM_EFFECT_CACHE.get(cacheKey);
     const def = CHARM_DEFS[type];
     const sizeSpec = def?.sizes?.[size];
@@ -1304,7 +1424,7 @@ HVEA_SHARED.ui = {
       CHARM_EFFECT_CACHE.set(cacheKey, empty);
       return empty;
     }
-    const lv = Math.max(0, Number(level) || 0);
+    const lv = Math.max(0, effectiveLevel || 0);
     const effect = createZeroCharmEffect();
     Object.entries(spec).forEach(([field, value]) => {
       effect[field] = typeof value === 'function' ? value(lv) : value;
@@ -1325,16 +1445,19 @@ HVEA_SHARED.ui = {
 
   function parseCharmNameToInfo(text) {
     const raw = String(text || '');
-    const compact = raw.replace(/[\s\u200B-\u200D\uFEFF]/g, '').toLowerCase();
-    if (!compact || /empty|unused|空/.test(compact)) return null;
+    const compactName = value => String(value).replace(/[\s\u200B-\u200D\uFEFF_-]/g, '').toLowerCase();
+    const compact = compactName(raw);
+    if (!compact || /^(?:empty|unused|空|空槽)$/.test(compact)) return null;
     let type = null;
+    let matchLength = 0;
     for (const [key, def] of Object.entries(CHARM_DEFS)) {
       const aliases = CHARM_NAME_ALIASES[key] || [];
-      if (compact.includes(key) ||
-        compact.includes(String(def.label || '').toLowerCase()) ||
-        aliases.some(alias => compact.includes(alias))) {
-        type = key;
-        break;
+      for (const alias of [key, def.label, ...aliases]) {
+        const name = compactName(alias || '');
+        if (name && compact.includes(name) && name.length > matchLength) {
+          type = key;
+          matchLength = name.length;
+        }
       }
     }
     if (!type) return null;
@@ -2045,11 +2168,12 @@ HVEA_SHARED.ui = {
     function parseStatsFromHtml(html) {
         const stats = [];
         const strikes = [];
+        const compromise = { Burden: 0, Interference: 0 };
         const doc = new DOMParser().parseFromString(html, 'text/html');
         const eq = doc.querySelector('.eq');
         let eqt = '';
         const counterResistCharmBonus = getCounterResistCharmBonus(doc);
-        if (!eq) return { stats, strikes, eqt, counterResistCharmBonus };
+        if (!eq) return { stats, strikes, compromise, eqt, counterResistCharmBonus };
 
         const strikeNames = [
             ['Fire Strike', '火焰打击'], ['Cold Strike', '冰霜打击'],
@@ -2069,6 +2193,11 @@ HVEA_SHARED.ui = {
 
         const eqtDiv = eq.querySelector('.eqt');
         if (eqtDiv) eqt = eqtDiv.textContent.trim();
+        const compromiseText = eq.querySelector('.eqc')?.textContent || '';
+        for (const field of Object.keys(compromise)) {
+            const match = new RegExp(field + ':\\s*([\\d.]+)', 'i').exec(compromiseText);
+            if (match) compromise[field] = Number(match[1]);
+        }
 
         let currentSection = 'ex';
         const regexVal = /^([+-]?\d+(?:\.\d+)?)(?:\s+(\S.*))?$/;
@@ -2097,6 +2226,7 @@ HVEA_SHARED.ui = {
                     section === 'spell'
                 ),
                 source: isCharmNode ? 'charm' : 'equipment',
+                hasBaseRoll: Boolean(baseMatch),
             });
         }
 
@@ -2145,7 +2275,7 @@ HVEA_SHARED.ui = {
             }
         }
 
-        return { stats, strikes, eqt, counterResistCharmBonus };
+        return { stats, strikes, compromise, eqt, counterResistCharmBonus };
     }
 
     const EQUIPMENT_DETAIL_CACHE = new Map();
@@ -2160,6 +2290,7 @@ HVEA_SHARED.ui = {
             ...slot,
             stats: Array.isArray(slot.stats) ? slot.stats.map(stat => ({ ...stat })) : [],
             strikes: Array.isArray(slot.strikes) ? slot.strikes.map(strike => ({ ...strike })) : [],
+            compromise: { ...slot.compromise },
             charmInfo: Array.isArray(slot.charmInfo)
                 ? slot.charmInfo.map(charm => ({ ...charm }))
                 : slot.charmInfo,
@@ -2220,11 +2351,13 @@ HVEA_SHARED.ui = {
         const result = {
             html,
             originalName: String(detail?.n || getOriginalEquipmentName(html)).trim(),
+            equipmentLevel: Number(/\bLevel\s+(\d+)/i.exec(parsed.eqt)?.[1]) || null,
             forge: tierMatch ? parseInt(tierMatch[1], 10) : 0,
             iw: tierMatch ? parseInt(tierMatch[2], 10) : 0,
             max: tierMatch ? parseInt(tierMatch[3], 10) : 0,
             stats: parsed.stats,
             strikes: parsed.strikes,
+            compromise: parsed.compromise,
             weaponType: parsed.eqt,
             counterResistValue: counterResistStat && Number.isFinite(Number(counterResistStat.val))
                 ? Number(counterResistStat.val)
@@ -2317,9 +2450,11 @@ HVEA_SHARED.ui = {
             let detail = null;
             let enName = '';
             let originalName = '';
+            let equipmentLevel = null;
             let forge = 0, iw = 0, max = 0;
             let stats = [];
             let strikes = [];
+            let compromise = {};
             let weaponType = '';
             let counterResistValue = null;
             let counterResistRate = 1;
@@ -2341,11 +2476,13 @@ HVEA_SHARED.ui = {
                 const parsed = getParsedEquipmentDetail(eid, detail);
                 enName = String(detail.t || '').trim();
                 originalName = parsed.originalName || enName;
+                equipmentLevel = parsed.equipmentLevel;
                 forge = parsed.forge;
                 iw = parsed.iw;
                 max = parsed.max;
                 stats = parsed.stats.map(stat => ({ ...stat }));
                 strikes = parsed.strikes.map(strike => ({ ...strike }));
+                compromise = { ...parsed.compromise };
                 weaponType = parsed.weaponType;
                 counterResistValue = parsed.counterResistValue;
                 counterResistRate = parsed.counterResistRate;
@@ -2431,12 +2568,14 @@ HVEA_SHARED.ui = {
                 name,
                 enName,
                 originalName,
+                equipmentLevel,
                 forge,
                 iw,
                 max,
                 quality,
                 stats,
                 strikes,
+                compromise,
                 weaponType,
                 counterResistValue,
                 counterResistRate,
@@ -2585,6 +2724,11 @@ HVEA_SHARED.ui = {
         });
     }
 
+    function getArchmageBaseAddition(slot, effect) {
+        return getEquipmentStatForTitle(slot, 'Magic Damage')?.hasBaseRoll
+            ? 0 : Number(effect.weaponMagicBase || 0);
+    }
+
     function stripCharmFromStatValue(rawValue, title, slot, charms) {
         let value = Number(rawValue);
         if (!Number.isFinite(value)) return 0;
@@ -2596,9 +2740,20 @@ HVEA_SHARED.ui = {
             if (!effect) return;
             if (title === 'Magic Accuracy' && (Number(effect.maccPercent) || Number(effect.maccFlat))) {
                 value = (value - Number(effect.maccFlat || 0)) / (1 + Number(effect.maccPercent || 0) / 100);
+            } else if (title === 'Attack Accuracy' && effect.accuracyPercent) {
+                value = (value - effect.accuracyFlat) / (1 + effect.accuracyPercent / 100);
+            } else if (['Crushing Damage', 'Slashing Damage', 'Piercing Damage', 'Void Damage'].includes(title) && effect.attackDamagePercent) {
+                value /= 1 + effect.attackDamagePercent / 100;
+            } else if (title === 'Attack Speed' && effect.attackSpeed) {
+                value = 100 * (1 - (1 - value / 100) / (1 - effect.attackSpeed / 100));
+            } else if (title === 'Attack Crit Damage' && effect.attackCritDamage) {
+                value -= effect.attackCritDamage;
+            } else if (title === 'Counter-parry' && effect.counterParry) {
+                value -= effect.counterParry;
             } else if (title === 'Magic Damage' && charm.type === 'archmage') {
                 if (effect.percent) {
-                    value = value / (1 + Number(effect.weaponMagicDamage || 0) / 100);
+                    value = value / (1 + Number(effect.weaponMagicDamage || 0) / 100) -
+                        getArchmageBaseAddition(slot, effect);
                 } else if (Number(effect.weaponMagicDamage)) {
                     value = value - Number(effect.weaponMagicDamage);
                 }
@@ -2630,6 +2785,82 @@ HVEA_SHARED.ui = {
         return Math.max(0, pureCurrent / denominator * (1 + currentLevel * rate / 100));
     }
 
+    function getWeaponCharmChanges(slot, actualCharms, selectedCharms, levelMap) {
+        const weaponClass = resolveWeaponClass(slot);
+        const effects = charms => (charms || []).map(charm =>
+            getCharmEffect(charm.type, charm.size, weaponClass, getPlayerLevel(), slot));
+        const actual = effects(actualCharms);
+        const selected = effects(selectedCharms);
+        const sum = (list, field) => list.reduce((total, effect) => total + (Number(effect[field]) || 0), 0);
+        const delta = field => sum(selected, field) - sum(actual, field);
+        const damageTitle = slot?.stats?.find(stat =>
+            ['Crushing Damage', 'Slashing Damage', 'Piercing Damage', 'Void Damage'].includes(stat.title))?.title;
+        const damage = damageTitle ? getPureEquipmentStatValue(slot, damageTitle, levelMap, actualCharms) : 0;
+        const accuracy = getPureEquipmentStatValue(slot, 'Attack Accuracy', levelMap, actualCharms);
+        const strikes = new Map((slot?.strikes || []).map(strike => [strike.element, { ...strike }]));
+        const labels = ['火焰打击', '冰霜打击', '闪电打击', '疾风打击', '神圣打击', '黑暗打击', '虚空打击'];
+        for (const [list, sign] of [[actual, -1], [selected, 1]]) {
+            for (const effect of list) {
+                if (!effect.strikePercent) continue;
+                const element = effect.strikeElement;
+                const strike = strikes.get(element) || { element, label: labels[element], fraction: 0 };
+                strike.fraction = Math.max(0, strike.fraction + sign * effect.strikePercent / 100);
+                strikes.set(element, strike);
+            }
+        }
+        let typeOverride = selected.some(effect => effect.voidDamage) ? '虚空' : null;
+        if (!typeOverride && actual.some(effect => effect.voidDamage) && damageTitle === 'Void Damage') {
+            const words = String(slot.originalName || slot.enName || slot.name || '').split(/\s+/);
+            if (!words.includes('Ethereal')) {
+                const types = [
+                    [['Club', 'Mace', 'Staff'], '打击'],
+                    [['Axe', 'Shortsword', 'Longsword', 'Katana', 'Wakizashi'], '斩击'],
+                    [['Rapier', 'Estoc', 'Dagger'], '刺击'],
+                ];
+                typeOverride = types.find(([names]) => names.some(name => words.includes(name)))?.[1] || null;
+            }
+        }
+        return {
+            damage: damage * delta('attackDamagePercent') / 100,
+            accuracy: accuracy * delta('accuracyPercent') / 100 + delta('accuracyFlat'),
+            crit: delta('attackCritDamage'),
+            speed: delta('attackSpeed'),
+            speedRatio: (1 - sum(selected, 'attackSpeed') / 100) / (1 - sum(actual, 'attackSpeed') / 100),
+            counterParry: delta('counterParry'),
+            strikes: Array.from(strikes.values()).filter(strike => strike.fraction > 0.000001),
+            strikeChanges: Array.from(strikes.values()).map(strike => ({
+                ...strike,
+                fraction: strike.fraction -
+                    ((slot?.strikes || []).find(original => original.element === strike.element)?.fraction || 0),
+            })).filter(strike => Math.abs(strike.fraction) > 0.000001),
+            typeOverride,
+        };
+    }
+
+    // EHWiki Character Stats leaves both burden curves as unknown functions.
+    function getBurdenMultiplier(burden, kind) {
+        const value = Math.max(0, Number(burden) || 0);
+        if (kind === 'speed') {
+            if (value <= 40) return 1;
+            if (value >= 130) return 0;
+        } else {
+            if (value === 0) return 1;
+            if (value === 50) return 0.75;
+            if (value >= 100) return 0;
+        }
+        return null;
+    }
+
+    function getBurdenPanelDelta(current, actualBurden, selectedBurden, kind, speedRatio = 1) {
+        if (actualBurden === selectedBurden && (kind !== 'speed' || speedRatio === 1)) return 0;
+        const actual = getBurdenMultiplier(actualBurden, kind);
+        const selected = getBurdenMultiplier(selectedBurden, kind);
+        if (selected === 0) return -current;
+        if (actual === null || selected === null || actual === 0) return null;
+        const pure = current / actual;
+        return (kind === 'speed' ? 100 - (100 - pure) * speedRatio : pure) * selected - current;
+    }
+
     const slotAttackCharmsCache = new WeakMap();
 
     function getSlotAttackCharms(slot, index) {
@@ -2645,10 +2876,8 @@ HVEA_SHARED.ui = {
         if (cached && cached.list === list && cached.key === key && cached.weaponClass === weaponClass) {
             return cached.value;
         }
-        const defenseSlot = key === 'main' ? false : key === 'off' ? weaponClass === 'shield' : true;
         const value = (list || []).filter(charm => {
-            const def = charm && CHARM_DEFS[charm.type];
-            return def && (defenseSlot ? def.category === 'defense' : def.category === 'attack');
+            return charm && isCharmAllowedForSlot(charm.type, key, slot);
         });
         slotAttackCharmsCache.set(slot, { list, key, weaponClass, value });
         return value;
@@ -2666,6 +2895,22 @@ HVEA_SHARED.ui = {
             const effect = getCharmEffect(charm.type, charm.size, weaponClass, level, slot);
             if (!effect) return;
             const targets = [];
+            const damageTitle = slot.stats?.find(stat =>
+                ['Crushing Damage', 'Slashing Damage', 'Piercing Damage', 'Void Damage'].includes(stat.title))?.title;
+            if (damageTitle && effect.attackDamagePercent) {
+                targets.push({ title: damageTitle, pct: effect.attackDamagePercent, flat: 0 });
+            }
+            if (effect.accuracyPercent) {
+                targets.push({ title: 'Attack Accuracy', pct: effect.accuracyPercent, flat: effect.accuracyFlat });
+            }
+            for (const [field, title] of [
+                ['attackCritDamage', 'Attack Crit Damage'], ['counterParry', 'Counter-parry'],
+            ]) {
+                if (effect[field]) targets.push({ title, pct: 0, flat: effect[field] });
+            }
+            if (effect.attackSpeed) {
+                targets.push({ title: 'Attack Speed', pct: -effect.attackSpeed, flat: effect.attackSpeed });
+            }
             if (Number(effect.maccPercent) || Number(effect.maccFlat)) {
                 targets.push({ title: 'Magic Accuracy', pct: Number(effect.maccPercent) || 0, flat: Number(effect.maccFlat) || 0 });
             }
@@ -2673,7 +2918,8 @@ HVEA_SHARED.ui = {
                 targets.push({
                     title: 'Magic Damage',
                     pct: effect.percent ? Number(effect.weaponMagicDamage) || 0 : 0,
-                    flat: effect.percent ? 0 : Number(effect.weaponMagicDamage) || 0,
+                    flat: effect.percent ? getArchmageBaseAddition(slot, effect) *
+                        (1 + Number(effect.weaponMagicDamage || 0) / 100) : Number(effect.weaponMagicDamage) || 0,
                 });
             }
             if (Number(effect.castSpeed)) {
@@ -2847,13 +3093,43 @@ HVEA_SHARED.ui = {
         return Math.max(0.01, Math.min(1, chance));
     }
 
-    function damageResistanceMultiplier(chance) {
-        const pass = 1 - chance;
-        return pass ** 3 + 3 * chance * pass ** 2 * 0.5 +
-            3 * chance ** 2 * pass * 0.25 + chance ** 3 * 0.1;
+    function calculateDeprecatingOutcomes(macc, counterResist, resistValue) {
+        if (![macc, counterResist, resistValue].every(Number.isFinite) ||
+            macc <= -100 || resistValue < 0) return null;
+        const ratio = Math.max(0, resistValue * (1 - counterResist / 100)) / (macc + 100);
+        const resist = damageResistanceChance(ratio);
+        const pass = 1 - resist;
+        return [pass ** 3, 3 * resist * pass ** 2, 3 * resist ** 2 * pass, resist ** 3];
     }
 
-    function calculateSpellDamage({ monster, level, element, mdb, edb, proficiency, macc, cr, dd, tower, imperil, critMultiplier }) {
+    function getDeprecatingOutcomeTooltip(outcomes) {
+        if (!outcomes) return '未读取到完整魔法命中、减益熟练或目标参数。';
+        return ['0抵抗 100%时间', '1抵抗 75%时间', '2抵抗 50%时间', '3抵抗 减益失败']
+            .map((label, index) => label + '   ' + (outcomes[index] * 100).toFixed(2) + '%').join('\n') +
+            '\n\n怪物抵抗按当前等级满票估算，不计临时状态。';
+    }
+
+    function getSpellDamageMultipliers(playerLevel, element) {
+        if (element.index >= 4) return { t1: 4.5, t2: 6, t3: 7.5 };
+        // EHWiki Abilities and Spell_Damage; assume all available damage ranks are trained.
+        const tiers = {
+            t1: [[0, 4], [70, 4.1], [140, 4.15], [210, 4.2], [280, 4.23], [350, 4.25]],
+            t2: [[0, 5.5], [85, 5.63], [170, 5.71], [255, 5.78], [340, 5.82], [425, 5.85]],
+            t3: [[0, 7], [90, 7.15], [180, 7.25], [270, 7.35], [360, 7.42], [450, 7.5]],
+        };
+        const multipliers = {};
+        for (const [tier, ranks] of Object.entries(tiers)) {
+            multipliers[tier] = ranks[0][1];
+            for (const [requiredLevel, multiplier] of ranks) {
+                if (playerLevel < requiredLevel) break;
+                multipliers[tier] = multiplier;
+            }
+        }
+        return multipliers;
+    }
+
+    function calculateSpellDamage({ monster, level, playerLevel, element, mdb, edb, proficiency, macc, cr, dd, tower, imperil, critMultiplier }) {
+        const multipliers = getSpellDamageMultipliers(playerLevel, element);
         const pf = Math.max(0, Math.min(1, (proficiency - level) / level));
         const profReduction = pf ** 1.5 * 50;
         const primary = monster.endurance + 25 * Math.max(6, Math.min(10, monster.endurance * 0.1));
@@ -2873,13 +3149,12 @@ HVEA_SHARED.ui = {
         const requiredMacc = Math.max(0, effectiveResist * 3 - 100);
         const ratio = effectiveResist / (macc + 100);
         const resistChance = damageResistanceChance(ratio);
-        const resistMultiplier = damageResistanceMultiplier(resistChance);
         const base = mdb * (1 + edb / 100) * (1 + dd / 100) * (1 + tower * 0.001) * 1.25 * critMultiplier;
         return {
             pf, monsterHealth, resistValue, requiredMacc, ratio, resistChance, magicMitigation, elementMitigation, remainingMitigation,
-            t3: base * 7.5 * received, t2: base * 5.85 * received,
-            t3Expected: base * 7.5 * received * resistMultiplier,
-            t2Expected: base * 5.85 * received * resistMultiplier,
+            t1: base * multipliers.t1 * received,
+            t2: base * multipliers.t2 * received,
+            t3: base * multipliers.t3 * received,
         };
     }
 
@@ -2901,8 +3176,21 @@ HVEA_SHARED.ui = {
         };
     }
 
-    function physicalParryChance(accuracy, parry) {
-        return parry > 0 ? damageResistanceChance(parry / (accuracy + 100)) : 0;
+    function physicalParryChance(accuracy, parry, counterParry = 0) {
+        const remaining = parry * Math.max(0, 1 - counterParry / 100);
+        return remaining > 0 ? damageResistanceChance(remaining / (accuracy + 100)) : 0;
+    }
+
+    function getPhysicalHitOutcomes(result) {
+        const parry = result.parryChance;
+        const unparried = (1 - parry) ** 2;
+        const partialParry = 2 * parry * (1 - parry);
+        return {
+            full: result.fullHit * unparried,
+            half: result.graze * unparried + result.fullHit * partialParry,
+            quarter: result.graze * partialParry,
+            failed: result.miss + (result.fullHit + result.graze) * parry ** 2,
+        };
     }
 
     function getWarriorTargetStats(monster, level) {
@@ -2954,7 +3242,7 @@ HVEA_SHARED.ui = {
         return bonus;
     }
 
-    function calculatePhysicalDamage({ damage, accuracy, critMultiplier, type, monster, target,
+    function calculatePhysicalDamage({ damage, accuracy, critMultiplier, type, monster, target, counterParry = 0,
         dd, tower, title, heartseeker, spirit, imperil, armorBreak }) {
         const rates = calculatePhysicalAttackRates(accuracy, target.evade);
         const physicalMitigation = target.physicalMitigation *
@@ -2968,7 +3256,7 @@ HVEA_SHARED.ui = {
         // Each successful repeat adds one more crit bonus; the game caps this at nine.
         const expectedCrits = rates.crit *
             Array.from({ length: 9 }, (_, index) => rates.repeatCrit ** index).reduce((sum, value) => sum + value, 0);
-        const parryChance = physicalParryChance(accuracy, target.parry ?? 0);
+        const parryChance = physicalParryChance(accuracy, target.parry ?? 0, counterParry);
         return {
             ...rates, parryChance, physicalMitigation, typeMitigation, beforeTypeMitigation,
             normal, critical: normal * (1 + critBonus),
@@ -3046,11 +3334,14 @@ HVEA_SHARED.ui = {
                 type: skill.type ?? parameters.type,
                 target: skill.bypass ? { ...parameters.target, physicalMitigation: 0 } : parameters.target,
             });
+            const enhancedScale = skill.enhanced ? skill.enhanced / skill.multiplier : 1;
             return {
                 name: skill.name,
                 damage: skill.critical ? result.critical : result.normal,
                 enhancedDamage: skill.enhanced ? result.normal * skill.enhanced / skill.multiplier : null,
                 enhancedLabel: skill.enhancedLabel || '',
+                criticalDamage: result.critical,
+                enhancedCriticalDamage: skill.enhanced ? result.critical * enhancedScale : null,
                 title: (skill.note || '') + (skill.critical ? '' : '显示完整命中时的非暴击伤害。') +
                     '不计元素追击、流血及毒伤。',
             };
@@ -3070,24 +3361,18 @@ HVEA_SHARED.ui = {
         damagePanelStyleAdded = true;
         const css = [
             '#eqch_stats .hvut-eq-stats { display:none !important; }',
-            '#hv-mage-panel { position:absolute; bottom:100px; right:100%; margin-right:10px; width:190px; box-sizing:border-box; border:2px solid var(--color-border-default, #5C0D11); border-radius:9px; padding:5px 10px; background:var(--color-bg-default, #EDEBDF); color:var(--color-font-default, #5C0D11); white-space:nowrap; font-size:10pt; line-height:18px; z-index:4; }',
-            '#hv-mage-panel p { margin:0 0 3px; font-size:10pt; font-weight:bold; }',
-            '#hv-mage-panel table { font-size:9pt; line-height:18px; white-space:nowrap; border-collapse:collapse; }',
-            '#hv-mage-panel td { padding:1px 0; }',
-            '#hv-mage-panel td:first-child { text-align:right; padding-right:3px; color:var(--color-font-highlight, #c00); }',
-            '#hv-mage-panel td:last-child { text-align:left; }',
             '#hv-mage-panel [data-role="mage-resist-verdict"] { text-align:center; font-weight:bold; padding-top:5px; }',
             '#hv-mage-panel [data-role="mage-resist-verdict"][data-pass="true"] { color:#008000; }',
             '#hv-mage-panel [data-role="mage-resist-verdict"][data-pass="false"] { color:#c00; }',
-            '#hv-warrior-panel { position:absolute; bottom:100px; right:100%; margin-right:10px; width:190px; box-sizing:border-box; border:2px solid var(--color-border-default, #5C0D11); border-radius:9px; padding:5px 10px; background:var(--color-bg-default, #EDEBDF); color:var(--color-font-default, #5C0D11); font-size:9pt; line-height:18px; z-index:4; }',
-            '#hv-warrior-panel p { margin:0 0 3px; font-size:10pt; font-weight:bold; }',
-            '#hv-warrior-panel table { width:100%; table-layout:fixed; border-collapse:collapse; font:inherit; }',
-            '#hv-warrior-panel td { padding:1px 0; vertical-align:top; overflow-wrap:anywhere; }',
-            '#hv-warrior-panel td:first-child { width:76px; text-align:right; color:var(--color-font-highlight, #c00); padding-right:4px; font-variant-numeric:tabular-nums; white-space:pre-line; }',
-            '#hv-warrior-panel td:last-child { text-align:left; }',
+            '#hv-mage-panel, #hv-warrior-panel { position:absolute; bottom:100px; right:100%; margin-right:10px; width:190px; box-sizing:border-box; border:2px solid var(--color-border-default, #5C0D11); border-radius:9px; padding:5px 10px; background:var(--color-bg-default, #EDEBDF); color:var(--color-font-default, #5C0D11); font-size:9pt; line-height:18px; z-index:4; }',
+            '#hv-mage-panel p, #hv-warrior-panel p { margin:0 0 3px; font-size:10pt; font-weight:bold; }',
+            '#hv-mage-panel table, #hv-warrior-panel table { width:100%; table-layout:fixed; border-collapse:collapse; font:inherit; }',
+            '#hv-mage-panel td, #hv-warrior-panel td { padding:1px 0; vertical-align:top; overflow-wrap:anywhere; }',
+            '#hv-mage-panel td:first-child, #hv-warrior-panel td:first-child { width:76px; text-align:right; color:var(--color-font-highlight, #c00); padding-right:4px; font-variant-numeric:tabular-nums; white-space:pre-line; }',
+            '#hv-mage-panel td:last-child, #hv-warrior-panel td:last-child { text-align:left; }',
             '#hv-warrior-panel[data-dual=true] td:first-child { white-space:nowrap; overflow-wrap:normal; }',
             '#hv-warrior-panel[data-dual=true] [data-role="warrior-hit"], #hv-warrior-panel[data-dual=true] [data-role="warrior-crit"] { font-size:9px; }',
-            '#hv-damage-panel { position:absolute; bottom:100px; display:grid; grid-template-columns:190px minmax(0, 1fr); column-gap:12px; border:2px solid var(--color-border-default, #5C0D11); border-radius:9px; padding:6px 10px; background:var(--color-bg-default, #EDEBDF); color:var(--color-font-default, #5C0D11); width:min(410px, calc(100vw - 16px)); max-height:calc(100vh - 16px); overflow-y:auto; box-sizing:border-box; font-size:9pt; line-height:19px; z-index:4; }',
+            '#hv-damage-panel { position:absolute; bottom:100px; display:grid; grid-template-columns:150px minmax(0, 1fr); column-gap:12px; border:2px solid var(--color-border-default, #5C0D11); border-radius:9px; padding:6px 10px; background:var(--color-bg-default, #EDEBDF); color:var(--color-font-default, #5C0D11); width:min(440px, calc(100vw - 16px)); max-height:calc(100vh - 16px); overflow-y:auto; box-sizing:border-box; font-size:9pt; line-height:19px; z-index:4; }',
             '#hv-damage-panel p { grid-column:1 / -1; margin:0 0 4px; font-size:10pt; font-weight:bold; }',
             '#hv-damage-panel label { display:flex; justify-content:space-between; align-items:center; gap:6px; min-height:24px; white-space:nowrap; }',
             '#hv-damage-panel select, #hv-damage-panel input[type=number] { width:94px; box-sizing:border-box; font:inherit; color:inherit; background:var(--color-bg-default, #EDEBDF); border:1px solid var(--color-border-default, #5C0D11); border-radius:3px; }',
@@ -3100,22 +3385,21 @@ HVEA_SHARED.ui = {
             '#hv-damage-panel td:first-child { padding-right:10px; }',
             '#hv-damage-panel td:last-child { text-align:right; color:var(--color-font-highlight, #c00); font-variant-numeric:tabular-nums; }',
             '#hv-damage-panel [data-role=damage-error] { color:var(--color-font-highlight, #c00); }',
-            '#hv-damage-panel[data-mode=physical] { width:min(440px, calc(100vw - 16px)); grid-template-columns:150px minmax(0, 1fr); }',
+            '#hv-damage-panel .hv-damage-settings select, #hv-damage-panel .hv-damage-settings input[type=number] { width:94px; min-width:0; height:22px; min-height:22px; flex:0 0 94px; margin:0; padding:0 4px; }',
             '#hv-damage-panel[data-mode=physical] [hidden] { display:none !important; }',
-            '#hv-damage-panel[data-mode=physical] .hv-damage-results table { width:100%; font-size:11px; }',
-            '#hv-damage-panel[data-mode=physical] td:first-child { padding-right:6px; }',
+            '#hv-damage-panel .hv-damage-results table { width:100%; font-size:11px; }',
+            '#hv-damage-panel td:first-child { padding-right:6px; }',
             '#hv-damage-panel .hv-damage-header { grid-column:1 / -1; display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }',
             '#hv-damage-panel .hv-damage-header p { margin:0; }',
             '#hv-damage-panel .hv-damage-tabs { display:inline-flex; border:1px solid var(--color-border-default, #5C0D11); border-radius:3px; overflow:hidden; }',
             '#hv-damage-panel .hv-damage-tabs button { border:0; border-radius:0; padding:2px 7px; font:inherit; font-size:11px; color:inherit; background:transparent; cursor:pointer; }',
             '#hv-damage-panel .hv-damage-tabs button[aria-selected=true] { color:var(--color-bg-default, #EDEBDF); background:var(--color-border-default, #5C0D11); }',
             '#hv-damage-panel .hv-damage-tabs button:focus-visible { outline:2px solid currentColor; outline-offset:-3px; }',
-            '#hv-damage-panel[data-mode=physical] .hv-damage-results { min-height:144px; }',
+            '#hv-damage-panel .hv-damage-results { height:144px; min-height:0; margin-right:-10px; padding-right:10px; overflow-y:auto; overflow-x:hidden; }',
             '#hv-damage-panel .hv-critical-results th { font:inherit; text-align:right; padding:0 0 2px; }',
             '#hv-damage-panel .hv-critical-results th:first-child { text-align:left; }',
             '#hv-damage-panel .hv-critical-results td:nth-child(2) { text-align:right; color:var(--color-font-highlight, #c00); font-variant-numeric:tabular-nums; padding-right:8px; }',
             '#hv-damage-panel .hv-critical-results select { width:54px; font-size:11px; }',
-            '@media (max-width:520px) { #hv-damage-panel[data-mode=physical] { grid-template-columns:minmax(0, 1fr); } }',
             '@media (max-width:520px) { #hv-damage-panel { grid-template-columns:minmax(0, 1fr); } #hv-damage-panel p { grid-column:1; } #hv-damage-panel .hv-damage-results { border-top:1px solid var(--color-border-default, #5C0D11); margin-top:6px; padding-top:4px; } }',
         ].join('\n');
         if (typeof GM_addStyle === 'function') GM_addStyle(css);
@@ -3233,10 +3517,10 @@ HVEA_SHARED.ui = {
 
     function getWarriorDamagePanelHtml() {
         const rows = [
-            ['health', '怪物血量'],
-            ['evade', '闪避 / 招架'],
-            ['mitigation', '物理缓伤'],
             ['main-type', '主手类型缓伤'],
+            ['mitigation', '物理缓伤'],
+            ['evade', '闪避 / 招架'],
+            ['health', '怪物血量'],
             ['main-normal', '主手伤害'],
             ['skill-1', 'T1 伤害'],
             ['skill-2', 'T2 伤害'],
@@ -3252,27 +3536,29 @@ HVEA_SHARED.ui = {
                 '<option value="' + index + '">' + monster.name + '</option>').join('') +
             '</select></label>' +
             '<label>怪物等级<input data-input="level" type="number" min="1" max="9999" step="1"></label>' +
+            '<label>破甲层数<select data-input="armor-break">' +
+            [0, 1, 2, 3].map(value => '<option value="' + value + '">' + value + '</option>').join('') +
+            '</select></label>' +
             '<label>DD<select data-input="dd">' +
             DAMAGE_DD_BONUSES.map((bonus, level) =>
                 '<option value="' + bonus + '">DD' + level + ' (' + bonus + '%)</option>').join('') +
             '</select></label>' +
             '<label>塔楼层数<input data-input="tower" type="number" min="0" max="100" step="1" value="0"></label>' +
-            '<label>破甲层数<select data-input="armor-break">' +
-            [0, 1, 2, 3].map(value => '<option value="' + value + '">' + value + '</option>').join('') +
-            '</select></label>' +
             '<div class="hv-damage-toggles"><label>IMP<input data-input="imperil" type="checkbox" checked></label>' +
             '<label>灵动<input data-input="spirit" type="checkbox"></label></div>' +
             '</div><div class="hv-damage-results"><table data-damage-content="normal"><tbody>' +
             rows.map(([role, label]) => '<tr><td>' + label +
                 '</td><td data-role="physical-' + role + '">--</td></tr>').join('') +
             '</tbody></table><table class="hv-critical-results" data-damage-content="critical" hidden>' +
-            '<thead><tr><th><span data-role="critical-hand-label">主手</span>' +
+            '<thead><tr><th><span data-role="critical-hand-label">伤害类型</span>' +
             '<select data-input="critical-hand" aria-label="暴击计算武器" hidden>' +
             '<option value="main">主手</option><option value="off">副手</option></select></th>' +
             '<th>伤害</th><th title="按该手每次出手计算，只统计完整命中且未被招架时恰好该重数的概率。不含擦伤、未命中、部分或完全招架及6至9重暴击；副手未乘主手触发概率。">概率</th></tr></thead><tbody>' +
             Array.from({ length: 6 }, (_, count) => '<tr><td>' + (count ? count + '重暴击' : '未暴击') +
                 '</td><td data-role="physical-crit-' + count + '-damage">--</td>' +
                 '<td data-role="physical-crit-' + count + '-chance">--</td></tr>').join('') +
+            [1, 2, 3].map(tier => '<tr><td>T' + tier + '暴击</td>' +
+                '<td colspan="2" data-role="physical-skill-' + tier + '-critical">--</td></tr>').join('') +
             '</tbody></table><div data-role="damage-error"></div></div>';
     }
 
@@ -3291,7 +3577,7 @@ HVEA_SHARED.ui = {
         panel.id = 'hv-damage-panel';
         panel.dataset.mode = mode;
         panel.innerHTML = warrior ? getWarriorDamagePanelHtml() :
-            '<p>伤害计算</p>' +
+            '<div class="hv-damage-header"><p>伤害计算</p></div>' +
             '<div class="hv-damage-settings">' +
             '<label>怪物种类<select data-input="monster">' +
             DAMAGE_MONSTERS.map((monster, index) => '<option value="' + index + '">' + monster.name + '</option>').join('') +
@@ -3315,10 +3601,9 @@ HVEA_SHARED.ui = {
             '<tr><td>怪物抵抗值</td><td data-role="damage-resist-value">--</td></tr>' +
             '<tr><td>抵抗倍率 / 概率</td><td data-role="damage-resist">--</td></tr>' +
             '<tr><td>怪物血量</td><td data-role="damage-health">--</td></tr>' +
-            '<tr><td>T3 缓伤后</td><td data-role="damage-t3-raw">--</td></tr>' +
-            '<tr><td>T3 最终期望</td><td data-role="damage-t3">--</td></tr>' +
-            '<tr><td>T2 缓伤后</td><td data-role="damage-t2-raw">--</td></tr>' +
-            '<tr><td>T2 最终期望</td><td data-role="damage-t2">--</td></tr>' +
+            '<tr><td>T1</td><td data-role="damage-t1">--</td></tr>' +
+            '<tr><td>T2</td><td data-role="damage-t2">--</td></tr>' +
+            '<tr><td>T3</td><td data-role="damage-t3">--</td></tr>' +
             '</tbody></table><div data-role="damage-error"></div></div>';
         if (warrior) {
             panel.addEventListener('click', event => {
@@ -3354,17 +3639,16 @@ HVEA_SHARED.ui = {
             panel.innerHTML =
                 '<p>法师面板数据</p><table><tbody>' +
                 '<tr><td>--</td><td>法师综合分</td></tr>' +
-                '<tr><td>--</td><td>熟练度因子</td></tr>' +
-                '<tr><td>--</td><td>降低抗性</td></tr>' +
-                '<tr><td>--</td><td>魔法反抵抗</td></tr>' +
-                '<tr><td>--</td><td>减益魔法反抵抗</td></tr>' +
-                '<tr><td>--</td><td>治疗加成</td></tr>' +
+                '<tr><td>--</td><td>降低元素缓伤</td></tr>' +
+                '<tr><td>--</td><td>反抵抗</td></tr>' +
+                '<tr><td>--</td><td>' + (IS_ISEKAI_PAGE ? '减益反抵抗' : '减益命中率') + '</td></tr>' +
+                '<tr><td>--</td><td>治疗术加成</td></tr>' +
                 '</tbody></table>';
             stats.appendChild(panel);
         }
         const tbody = panel.querySelector('tbody');
-        while (tbody.rows.length > 7) tbody.deleteRow(-1);
-        const requiredRow = tbody.rows[6] || tbody.insertRow();
+        while (tbody.rows.length > 6) tbody.deleteRow(-1);
+        const requiredRow = tbody.rows[5] || tbody.insertRow();
         if (!requiredRow.cells.length) {
             requiredRow.insertCell().textContent = '--';
             requiredRow.insertCell();
@@ -3390,10 +3674,10 @@ HVEA_SHARED.ui = {
                 [
                     ['configuration', '武器配置'],
                     ['type', '攻击类型'],
-                    ['hit', '单次命中率'],
+                    ['hit', '有效命中率'],
                     ['crit', '暴击率'],
-                    ['healing', '治疗加成'],
-                    ['counter-resist', '减益魔法反抵抗'],
+                    ['healing', '治疗术加成'],
+                    ['debuff-hit', '减益命中率'],
                 ].map(([role, label]) => '<tr><td data-role="warrior-' + role +
                     '">--</td><td>' + label + '</td></tr>').join('') +
                 '</tbody></table>';
@@ -3628,18 +3912,43 @@ HVEA_SHARED.ui = {
     }
 
     function getPhysicalWeaponDamage(section, slot, settings) {
-        const typeLabel = getPhysicalAttackType(section, slot);
+        const originalType = getPhysicalAttackType(section, slot);
+        const preview = charmSimulation?.getWeaponPreview?.(slot);
+        const typeLabel = preview?.typeOverride || originalType;
         const type = ['打击', '斩击', '刺击', '虚空'].indexOf(typeLabel);
         if (type < 0) return null;
-        const title = ['Crushing Damage', 'Slashing Damage', 'Piercing Damage', 'Void Damage'][type];
-        const damage = getPhysicalPanelValue(section, title, [typeLabel + '伤害']);
+        const title = ['Crushing Damage', 'Slashing Damage', 'Piercing Damage', 'Void Damage'][
+            ['打击', '斩击', '刺击', '虚空'].indexOf(originalType)];
+        const damage = getPhysicalPanelValue(section, title, [originalType + '伤害']);
         const accuracy = getPhysicalPanelValue(section, 'Accuracy', ['命中']);
         const critMultiplier = getPhysicalPanelValue(section, 'Crit Multiplier', ['暴击伤害', '暴击倍率']);
         if (![damage, accuracy, critMultiplier].every(Number.isFinite) ||
             damage < 0 || accuracy < 0 || critMultiplier < 1) return null;
-        const result = calculatePhysicalDamage({ damage, accuracy, critMultiplier, type, ...settings });
-        return { ...addPhysicalStrikeDamage(result, slot?.strikes, settings.monster, settings.imperil),
-            damage, accuracy, critMultiplier, type, typeLabel };
+        const panelCounterParry = getPhysicalPanelValue(section, 'Counter-parry', ['反招架']);
+        const counterParry = Number.isFinite(panelCounterParry) ? panelCounterParry :
+            Number(getEquipmentStatForTitle(slot, 'Counter-parry')?.val || 0) + (preview?.counterParry || 0);
+        const result = calculatePhysicalDamage({ damage, accuracy, critMultiplier, type, counterParry, ...settings });
+        return { ...addPhysicalStrikeDamage(result, preview?.strikes || slot?.strikes, settings.monster, settings.imperil),
+            damage, accuracy, critMultiplier, counterParry, type, typeLabel };
+    }
+
+    function getDeprecatingCounterResistWithIncrements() {
+        const field = document.querySelector('#hv-damage-panel [data-input="level"]');
+        const level = field ? Number(field.value) : getPlayerLevel();
+        const proficiency = getOtherMagicProficiencyWithIncrements('Deprecating', '减益');
+        const cr = getCurrentCounterResist();
+        if (!Number.isInteger(level) || level < 1 || level > 9999 ||
+            ![proficiency, cr].every(Number.isFinite)) return null;
+        return cr + Math.max(0, Math.min(1, proficiency / level - 1)) * 50;
+    }
+
+    function getDeprecatingOutcomesWithIncrements() {
+        const field = document.querySelector('#hv-damage-panel [data-input="level"]');
+        const level = field ? Number(field.value) : getPlayerLevel();
+        return calculateDeprecatingOutcomes(
+            getMagicAccuracyWithIncrements(), getDeprecatingCounterResistWithIncrements(),
+            level * 1.25 * (1 + DAMAGE_CHAOS_LEVEL * 0.05),
+        );
     }
 
     function renderWarriorStatsPanel() {
@@ -3659,58 +3968,83 @@ HVEA_SHARED.ui = {
             return main === '--' && off === '--' ? '--' : main + ' / ' + off;
         };
         panel.dataset.dual = String(Boolean(configuration?.off));
+        const weapons = {
+            mainhand: settings ? getPhysicalWeaponDamage('mainhand', configuration?.main, settings) : null,
+            offhand: settings && configuration?.off ? getPhysicalWeaponDamage('offhand', configuration.off, settings) : null,
+        };
         set('configuration', configuration?.label || '--');
-        set('type', weaponValue((section, slot) => getPhysicalAttackType(section, slot)));
-        for (const role of ['hit', 'crit']) {
-            set(role, weaponValue(section => {
-                const accuracy = getPhysicalPanelValue(section, 'Accuracy', ['命中']);
-                if (!settings || !Number.isFinite(accuracy) || accuracy < 0) return '--';
-                return percent(calculatePhysicalAttackRates(accuracy, settings.target.evade)[role] * 100);
-            }));
-        }
+        set('type', weaponValue((section, slot) =>
+            weapons[section]?.typeLabel || getPhysicalAttackType(section, slot)));
+        set('hit', weaponValue(section => percent(weapons[section] ? weapons[section].landChance * 100 : null)));
+        const hitDetails = Object.entries(weapons).filter(([section]) =>
+            section === 'mainhand' || configuration?.off).map(([section, result]) => {
+            const heading = configuration?.off ? (section === 'mainhand' ? '主手\n' : '副手\n') : '';
+            if (!result) return heading + '未读取到完整攻击数据或目标参数。';
+            const outcomes = getPhysicalHitOutcomes(result);
+            return heading + [
+                ['full', '完整命中且未被招架'],
+                ['half', '擦伤或部分招架'],
+                ['quarter', '同时擦伤＋部分招架'],
+                ['failed', '完全闪避或完全招架'],
+            ].map(([key, label]) => label + '：' + percent(outcomes[key] * 100)).join('\n');
+        });
+        panel.querySelector('[data-role="warrior-hit"]').title = hitDetails.join('\n\n') +
+            '\n\n第二项仅统计擦伤、部分招架中的一种；按当前目标参数估算，不计眩晕等临时状态。' +
+            (configuration?.off ? '副手概率按副手已出手计算。' : '');
+        set('crit', weaponValue(section => {
+            const accuracy = getPhysicalPanelValue(section, 'Accuracy', ['命中']);
+            if (!settings || !Number.isFinite(accuracy) || accuracy < 0) return '--';
+            return percent(calculatePhysicalAttackRates(accuracy, settings.target.evade).crit * 100);
+        }));
         const level = getPlayerLevel();
         const supportive = getOtherMagicProficiencyWithIncrements('Supportive', '增益');
-        const deprecating = getOtherMagicProficiencyWithIncrements('Deprecating', '减益');
         const suppFactor = Number.isFinite(supportive) ? Math.min(1, supportive / level - 1) : null;
-        const deprFactor = Number.isFinite(deprecating) ? Math.max(0, Math.min(1, deprecating / level - 1)) : null;
         set('healing', percent(suppFactor === null ? null : suppFactor * (suppFactor > 0 ? 50 : 20)));
-        set('counter-resist', percent(deprFactor === null ? null : getCurrentCounterResist() + deprFactor * 50));
+        const outcomes = settings ? getDeprecatingOutcomesWithIncrements() : null;
+        set('debuff-hit', percent(outcomes ? (1 - outcomes[3]) * 100 : null));
+        const debuffHit = panel.querySelector('[data-role="warrior-debuff-hit"]');
+        debuffHit.title = getDeprecatingOutcomeTooltip(outcomes);
     }
 
     function renderMageStatsPanel() {
         const rows = document.querySelectorAll('#hv-mage-panel table tr');
-        if (rows.length < 6) return;
+        if (rows.length < 5) return;
         const element = findHighestElementAffinity();
         const level = getPlayerLevel();
         const mdb = getMagicDamageWithIncrements();
         const proficiency = getMagicProficiencyWithIncrements(element?.name);
-        const deprecating = getOtherMagicProficiencyWithIncrements('Deprecating', '减益');
         const supportive = getOtherMagicProficiencyWithIncrements('Supportive', '增益');
         const cr = getCurrentCounterResist();
         if (!element || level <= 0 ||
-            ![mdb, proficiency, deprecating, supportive, cr].every(Number.isFinite)) return;
+            ![mdb, proficiency, supportive, cr].every(Number.isFinite)) return;
 
         const pf = Math.max(0, Math.min(1, proficiency / level - 1));
-        const deprFactor = Math.max(0, Math.min(1, deprecating / level - 1));
+        const deprecatingCr = getDeprecatingCounterResistWithIncrements();
+        const deprecatingOutcomes = IS_ISEKAI_PAGE ? null : getDeprecatingOutcomesWithIncrements();
         const suppFactor = Math.min(1, supportive / level - 1);
         const values = [
             String(Math.round(mdb * (1 + element.value / 100))),
-            pf.toFixed(3),
             (pf ** 1.5 * 50).toFixed(2) + '%',
             (cr + pf * 50).toFixed(2) + '%',
-            (cr + deprFactor * 50).toFixed(2) + '%',
+            IS_ISEKAI_PAGE
+                ? (Number.isFinite(deprecatingCr) ? deprecatingCr.toFixed(2) + '%' : '--')
+                : (deprecatingOutcomes ? ((1 - deprecatingOutcomes[3]) * 100).toFixed(2) + '%' : '--'),
             (suppFactor * (suppFactor > 0 ? 50 : 20)).toFixed(2) + '%',
         ];
         values.forEach((value, index) => {
             if (rows[index].cells[0].textContent !== value) rows[index].cells[0].textContent = value;
         });
+        if (!IS_ISEKAI_PAGE) rows[3].cells[0].title = getDeprecatingOutcomeTooltip(deprecatingOutcomes);
+        const sources = getCurrentCounterResistBreakdown(cr);
+        rows[2].cells[0].title = [
+            'PF：' + (pf * 50).toFixed(2) + '%',
+            '护符：' + sources.charms.toFixed(2) + '%',
+            '装备自带：' + sources.equipment.toFixed(2) + '%',
+        ].join('\n');
         const scoreLabel = rows[0].cells[1];
-        const crLabel = rows[3].cells[1];
         const elementLabel = DAMAGE_ELEMENTS[element.name].label;
         const nextScoreLabel = elementLabel + ' 法师综合分';
-        const nextCrLabel = elementLabel + '魔法反抵抗';
         if (scoreLabel.textContent !== nextScoreLabel) scoreLabel.textContent = nextScoreLabel;
-        if (crLabel.textContent !== nextCrLabel) crLabel.textContent = nextCrLabel;
     }
 
     function renderMagePenetration(result) {
@@ -3735,6 +4069,7 @@ HVEA_SHARED.ui = {
             renderWarriorStatsPanel();
             return;
         }
+        renderMageStatsPanel();
         const input = role => panel.querySelector('[data-input="' + role + '"]');
         const output = (role, value) => { panel.querySelector('[data-role="damage-' + role + '"]').textContent = value; };
         const num = role => input(role).value.trim() === '' ? NaN : Number(input(role).value);
@@ -3760,7 +4095,7 @@ HVEA_SHARED.ui = {
         const error = panel.querySelector('[data-role="damage-error"]');
         if (!valid) {
             renderMagePenetration(null);
-            for (const role of ['element', 'mitigation', 'resist-value', 'resist', 'health', 't3-raw', 't3', 't2-raw', 't2']) output(role, '--');
+            for (const role of ['element', 'mitigation', 'resist-value', 'resist', 'health', 't3', 't2', 't1']) output(role, '--');
             error.textContent = !element ? '未读取到主元素' :
                 input('crit').checked && !(critMultiplier > 0) ? '未读取到魔法暴击伤害倍率' :
                 ![mdb, edb, proficiency, macc].every(Number.isFinite) ? '未读取到完整魔法面板数据' : '请检查怪物或参数输入';
@@ -3769,6 +4104,7 @@ HVEA_SHARED.ui = {
         error.textContent = '';
         const result = calculateSpellDamage({
             monster, level, element, mdb, edb, proficiency, macc, cr, dd, tower,
+            playerLevel: getPlayerLevel(),
             imperil: input('imperil').checked,
             critMultiplier,
         });
@@ -3780,10 +4116,9 @@ HVEA_SHARED.ui = {
         output('resist-value', result.resistValue.toFixed(1));
         output('resist', result.ratio.toFixed(3) + ' / ' + (result.resistChance * 100).toFixed(1) + '%');
         output('health', damage(result.monsterHealth));
-        output('t3-raw', damage(result.t3));
-        output('t3', damage(result.t3Expected));
-        output('t2-raw', damage(result.t2));
-        output('t2', damage(result.t2Expected));
+        output('t3', damage(result.t3));
+        output('t2', damage(result.t2));
+        output('t1', damage(result.t1));
         positionDamagePanel();
     }
 
@@ -3840,7 +4175,7 @@ HVEA_SHARED.ui = {
             (off ? '\n副手：' + breakdown(off, off.normal) : '');
         const skills = calculatePhysicalSkillDamages(configuration.style, {
             damage: main.damage, accuracy: main.accuracy, critMultiplier: main.critMultiplier,
-            type: main.type, ...settings,
+            type: main.type, counterParry: main.counterParry, ...settings,
         });
         for (const [index, skill] of skills.entries()) {
             const role = 'skill-' + (index + 1);
@@ -3849,6 +4184,12 @@ HVEA_SHARED.ui = {
             node.title = skill?.title || '当前武器配置没有此技能。';
             set(role, skill ? amount(skill.damage) +
                 (skill.enhancedDamage !== null ? ' / ' + amount(skill.enhancedDamage) +
+                    (skill.enhancedLabel ? '(' + skill.enhancedLabel + ')' : '') : '') : '--');
+            const criticalNode = panel.querySelector('[data-role="physical-' + role + '-critical"]');
+            criticalNode.title = skill ? 'T' + (index + 1) + ' ' + skill.name +
+                '，单重暴击伤害；不计元素追击、流血、毒伤及直接击杀。' : '当前武器配置没有此技能。';
+            set(role + '-critical', skill ? amount(skill.criticalDamage) +
+                (skill.enhancedCriticalDamage !== null ? ' / ' + amount(skill.enhancedCriticalDamage) +
                     (skill.enhancedLabel ? '(' + skill.enhancedLabel + ')' : '') : '') : '--');
         }
         const criticalResult = handInput.value === 'off' && off ? off : main;
@@ -3932,6 +4273,24 @@ HVEA_SHARED.ui = {
             ? (Number(charmSimulation.getCounterResistPanelDelta()) || 0)
             : 0;
         return raw + charmDelta;
+    }
+
+    function getCurrentCounterResistBreakdown(total = getCurrentCounterResist()) {
+        const slots = activeUpgradeSimulation?.equipSlots || getEquipmentData();
+        const actualCharms = (slots || []).reduce((sum, slot, index) => {
+            const slotId = Number(slot?.slotId);
+            const isHand = slotId === 1 || slotId === 2 || (slot?.slotId == null && index < 2);
+            if (!isHand || !slot?.available) return sum;
+            const charmStats = (slot.stats || []).filter(stat =>
+                stat.source === 'charm' && isCounterResistTitle(stat.title));
+            const bonus = charmStats.length
+                ? charmStats.reduce((value, stat) => value + (Number(stat.val) || 0), 0)
+                : Number(slot.counterResistCharmBonus) || 0;
+            return sum + bonus;
+        }, 0);
+        const delta = charmSimulation?.getCounterResistPanelDelta?.() || 0;
+        const charms = Math.max(0, actualCharms + delta);
+        return { charms, equipment: total - charms };
     }
 
     async function refreshDamagePanel() {
@@ -6379,8 +6738,6 @@ HVEA_SHARED.ui = {
     const slotStatusEls = {};
     const modifiedSlots = {};
 
-    const WEAPON_CLASS_LABELS = { staff: '法杖', onehand: '单手', twohand: '双手', shield: '盾牌' };
-
     function getCharmSlots() {
       const slots = activeUpgradeSimulation?.equipSlots || getEquipmentData();
       const result = {};
@@ -6399,12 +6756,7 @@ HVEA_SHARED.ui = {
     }
 
     function filterCharmsForSlot(key, charms, slot) {
-      const defenseSlot = isDefenseCharmSlot(key, slot);
-      return (charms || []).filter(charm => {
-        const def = charm && CHARM_DEFS[charm.type];
-        if (!def) return false;
-        return defenseSlot ? def.category === 'defense' : def.category === 'attack';
-      });
+      return (charms || []).filter(charm => charm && isCharmAllowedForSlot(charm.type, key, slot));
     }
 
     function getLivePanelDetails(sectionKey, title) {
@@ -6505,10 +6857,9 @@ HVEA_SHARED.ui = {
       }, 0);
     }
 
-    function getCappedManaCostPanelDelta(slots, level) {
+    function getCappedManaCostPanelDelta(slots, level, interference = 0, interferenceDelta = 0, slotKey = null) {
       let actualReduction = 0;
       let selectedReduction = 0;
-      let hasManaCostStat = false;
 
       CHARM_SLOT_KEYS.forEach(key => {
         const slot = slots[key];
@@ -6522,7 +6873,7 @@ HVEA_SHARED.ui = {
 
         const weaponClass = resolveWeaponClass(slot);
         const actualCharms = Array.isArray(charmState.actualCharms[key]) ? charmState.actualCharms[key] : [];
-        const selectedCharms = getSelectedCharmsForSlot(key);
+        const selectedCharms = slotKey && key !== slotKey ? actualCharms : getSelectedCharmsForSlot(key);
         const actualCharmReduction = getManaCostReductionFromCharms(actualCharms, weaponClass, level, slot);
         const selectedCharmReduction = getManaCostReductionFromCharms(selectedCharms, weaponClass, level, slot);
 
@@ -6533,18 +6884,53 @@ HVEA_SHARED.ui = {
           actualReduction += actualCharmReduction;
           selectedReduction += selectedCharmReduction;
         }
-        hasManaCostStat = hasManaCostStat || hasEquipmentManaCostStat
-          || actualCharmReduction > 0 || selectedCharmReduction > 0;
       });
 
-      if (!hasManaCostStat) return 0;
-      const cap = 50;
-      const actualModifier = -Math.min(cap, Math.max(0, actualReduction));
-      const selectedModifier = -Math.min(cap, Math.max(0, selectedReduction));
+      // EHWiki: mana cost = (1 + interference * 0.5%) * (1 - conservation).
+      const modifier = (reduction, value) => {
+        const cost = 100 + Math.max(0, value) * 0.5;
+        return Math.max(-50, cost - 100 - cost * Math.min(100, Math.max(0, reduction)) / 100);
+      };
+      const actualModifier = modifier(actualReduction, interference);
+      const selectedModifier = modifier(selectedReduction, interference + interferenceDelta);
       return selectedModifier - actualModifier;
     }
 
-    function getCharmNetEffects() {
+    function getWeaponPreview(slot) {
+      if (!activeUpgradeSimulation || !slot) return null;
+      const key = getCharmSlotKey(slot, slot.index);
+      const actual = charmState.actualCharms[key] || [];
+      const selected = getSelectedCharmsForSlot(key);
+      return getWeaponCharmChanges(slot, actual, selected, activeUpgradeSimulation.state);
+    }
+
+    function getCompromiseDelta(slot, actualCharms, selectedCharms) {
+      const actual = actualCharms.find(charm => charm.type === 'featherweight');
+      const selected = selectedCharms.find(charm => charm.type === 'featherweight');
+      const spec = charm => charm ? getCharmEffect(charm.type, charm.size, resolveWeaponClass(slot), getPlayerLevel(), slot) : {};
+      const oldEffect = spec(actual);
+      const newEffect = spec(selected);
+      const result = { unresolved: [] };
+      for (const field of ['Burden', 'Interference']) {
+        const current = Number(slot.compromise?.[field]) || 0;
+        // A displayed zero does not retain the original value before a flat reduction.
+        if (actual && current === 0 && (!selected ||
+            newEffect.compromiseFlat < oldEffect.compromiseFlat ||
+            newEffect.compromisePercent < oldEffect.compromisePercent)) {
+          result[field] = 0;
+          result.unresolved.push(field);
+          continue;
+        }
+        const pure = actual && current > 0 ? Math.max(
+          current + oldEffect.compromiseFlat, current / (1 - oldEffect.compromisePercent / 100)) : current;
+        const simulated = Math.max(0, pure - Math.max(
+          newEffect.compromiseFlat || 0, pure * (newEffect.compromisePercent || 0) / 100));
+        result[field] = simulated - current;
+      }
+      return result;
+    }
+
+    function getCharmNetEffects(slotKey = null) {
       const level = getPlayerLevel();
       const slots = getCharmSlots();
       const net = {
@@ -6562,8 +6948,15 @@ HVEA_SHARED.ui = {
         selectedMaxManaPercent: 0,
         actualMaxHealthPercent: 0,
         actualMaxManaPercent: 0,
+        weapons: {},
+        compromise: { Burden: 0, Interference: 0 },
+        elemental: {},
+        elementalRatio: {},
+        unresolvedCompromise: new Set(),
+        notes: [],
       };
       CHARM_SLOT_KEYS.forEach(key => {
+        if (slotKey && key !== slotKey) return;
         const slot = slots[key];
         if (!slot) return;
         const defenseSlot = isDefenseCharmSlot(key, slot);
@@ -6571,10 +6964,17 @@ HVEA_SHARED.ui = {
         const weaponClass = resolveWeaponClass(slot);
         const selectedCharms = getSelectedCharmsForSlot(key);
         const actualCharms = Array.isArray(charmState.actualCharms[key]) ? charmState.actualCharms[key] : [];
+        if (key === 'main' || key === 'off') {
+          net.weapons[key] = getWeaponCharmChanges(slot, actualCharms, selectedCharms, activeUpgradeSimulation?.state);
+        }
+        const compromise = getCompromiseDelta(slot, actualCharms, selectedCharms);
+        for (const field of ['Burden', 'Interference']) net.compromise[field] += compromise[field];
+        compromise.unresolved.forEach(field => net.unresolvedCompromise.add(field));
         let statPairs = null;
         Object.keys(CHARM_DEFS).forEach(type => {
           const def = CHARM_DEFS[type];
-          if (defenseSlot ? def.category !== 'defense' : def.category !== 'attack') return;
+          if (!isCharmAllowedForSlot(type, key, slot)) return;
+          if (def.category === 'general' || def.category === 'warrior') return;
           const selectedInfo = selectedCharms.find(charm => charm.type === type);
           const actualInfo = actualCharms.find(charm => charm.type === type);
           const selectedEffect = selectedInfo
@@ -6584,6 +6984,18 @@ HVEA_SHARED.ui = {
             ? getCharmEffect(actualInfo.type, actualInfo.size, weaponClass, level, slot)
             : createZeroCharmEffect();
           if (defenseSlot) {
+            const element = selectedEffect.mitigationElement || actualEffect.mitigationElement;
+            if (element) {
+              const delta = ((selectedEffect.elementalMitigation || 0) -
+                (actualEffect.elementalMitigation || 0)) * multiplier;
+              net.elemental[element] = (net.elemental[element] || 0) + delta;
+              const stat = slot.stats?.find(stat => stat.section === 'mitigation' &&
+                [element, element + ' Mitigation', element === 'Elec' ? 'Lightning' : element].includes(stat.title));
+              const current = Math.max(Number(stat?.val) || 0,
+                (actualEffect.elementalMitigation || 0) * multiplier);
+              net.elementalRatio[element] = (net.elementalRatio[element] || 1) *
+                ((100 - current - delta) / Math.max(0.0001, 100 - current));
+            }
             net.maxHealthPercent += ((selectedEffect.maxHealthPercent || 0) - (actualEffect.maxHealthPercent || 0)) * multiplier;
             net.maxManaPercent += ((selectedEffect.maxManaPercent || 0) - (actualEffect.maxManaPercent || 0)) * multiplier;
             net.selectedMaxHealthPercent += (selectedEffect.maxHealthPercent || 0) * multiplier;
@@ -6613,14 +7025,28 @@ HVEA_SHARED.ui = {
           if (type === 'archmage') {
             if (selectedEffect.percent || actualEffect.percent) {
               net.weaponMagicDamagePanel += (Number(selectedEffect.weaponMagicDamage || 0) / 100) * statPairs.magicDamage.sim
-                - (Number(actualEffect.weaponMagicDamage || 0) / 100) * statPairs.magicDamage.sim;
+                - (Number(actualEffect.weaponMagicDamage || 0) / 100) * statPairs.magicDamage.sim +
+                getArchmageBaseAddition(slot, selectedEffect) * (1 + Number(selectedEffect.weaponMagicDamage || 0) / 100) -
+                getArchmageBaseAddition(slot, actualEffect) * (1 + Number(actualEffect.weaponMagicDamage || 0) / 100);
             } else {
               net.weaponMagicDamagePanel += Number(selectedEffect.weaponMagicDamage || 0) - Number(actualEffect.weaponMagicDamage || 0);
             }
           }
         });
       });
-      net.manaCostPanel = getCappedManaCostPanelDelta(slots, level);
+      const totalCompromise = field => getLivePanelDetails('compromise', field)?.value ??
+        Object.values(slots).reduce((total, slot) => total + (Number(slot?.compromise?.[field]) || 0), 0);
+      net.actualBurden = totalCompromise('Burden');
+      net.selectedBurden = Math.max(0, net.actualBurden + net.compromise.Burden);
+      if (!net.unresolvedCompromise.has('Interference')) {
+        net.manaCostPanel = getCappedManaCostPanelDelta(slots, level,
+          totalCompromise('Interference'), net.compromise.Interference, slotKey);
+      } else {
+        net.notes.push('已有羽毛将干涉降为0，原值不可还原，本次无法精确预览魔耗。');
+      }
+      if (net.unresolvedCompromise.has('Burden')) {
+        net.notes.push('已有羽毛将负重降为0，原值不可还原，本次无法精确预览负重、闪避和攻速。');
+      }
       return net;
     }
 
@@ -6645,7 +7071,7 @@ HVEA_SHARED.ui = {
       const selectedText = (CHARM_SLOT_LABELS[key] || key) + ': ' + label;
       const parts = [];
       if (Math.abs(net.weaponMagicDamagePanel) >= 0.0001) parts.push('武器魔法伤害 ' + formatCharmDelta(net.weaponMagicDamagePanel));
-      if (Math.abs(net.manaCostPanel) >= 0.0001) parts.push('魔耗减免 ' + formatCharmDelta(net.manaCostPanel) + '%');
+      if (Math.abs(net.manaCostPanel) >= 0.0001) parts.push('魔耗修正 ' + formatCharmDelta(net.manaCostPanel) + '%');
       if (Math.abs(net.castSpeedPanel) >= 0.0001) parts.push('施法速度 ' + formatCharmDelta(net.castSpeedPanel) + '%');
       if (Math.abs(net.critDamage) >= 0.0001) parts.push('魔法暴击伤害 ' + formatCharmDelta(net.critDamage));
       if (Math.abs(net.counterResistPanel) >= 0.0001) parts.push('反抵抗 ' + formatCharmDelta(net.counterResistPanel) + '%');
@@ -6661,8 +7087,28 @@ HVEA_SHARED.ui = {
       }
       if (Math.abs(net.maxHealthPercent) >= 0.0001) parts.push('生命 ' + formatCharmDelta(net.maxHealthPercent) + '%');
       if (Math.abs(net.maxManaPercent) >= 0.0001) parts.push('魔力 ' + formatCharmDelta(net.maxManaPercent) + '%');
+      for (const [hand, effects] of Object.entries(net.weapons)) {
+        const label = CHARM_SLOT_LABELS[hand];
+        for (const [field, name, suffix] of [
+          ['damage', '伤害', ''], ['accuracy', '命中', ''], ['crit', '暴伤', ''],
+          ['speed', '攻速', '%'], ['counterParry', '反招架', '%'],
+        ]) {
+          if (Math.abs(effects[field]) >= 0.0001) parts.push(label + name + ' ' + formatCharmDelta(effects[field]) + suffix);
+        }
+        if (effects.typeOverride) parts.push(label + '类型 ' + effects.typeOverride);
+        for (const strike of effects.strikeChanges) {
+          parts.push(label + strike.label + ' ' + formatCharmDelta(strike.fraction * 100) + '%');
+        }
+      }
+      for (const [field, label] of [['Burden', '负重'], ['Interference', '干扰']]) {
+        if (Math.abs(net.compromise[field]) >= 0.0001) parts.push(label + ' ' + formatCharmDelta(net.compromise[field]));
+      }
+      for (const [element, value] of Object.entries(net.elemental)) {
+        if (Math.abs(value) >= 0.0001) parts.push(DAMAGE_ELEMENTS[element].fullLabel + '缓伤 ' + formatCharmDelta(value) + '%');
+      }
       const loadingText = charmState.loading ? '　护符读取中...' : '';
       effectDisplay.textContent = selectedText + '｜' + (parts.length ? parts.join('，') : '无变化') + loadingText;
+      effectDisplay.title = net.notes.join('\n');
     }
 
     function clearCharmPanelIncrements() {
@@ -6693,6 +7139,36 @@ HVEA_SHARED.ui = {
         ['magic', 'Counter-resist', net.counterResistPanel || 0],
         ['magic', 'Accuracy', net.maccPanel || 0],
       ];
+      for (const [hand, effect] of Object.entries(net.weapons)) {
+        const section = hand === 'main' ? 'mainhand' : 'offhand';
+        const damageTitle = ['Crushing Damage', 'Slashing Damage', 'Piercing Damage', 'Void Damage']
+          .find(title => findEnglishPanelRow(section, title));
+        if (damageTitle) entries.push([section, damageTitle, effect.damage]);
+        entries.push(
+          [section, 'Accuracy', effect.accuracy],
+          [section, 'Crit Multiplier', effect.crit],
+          [section, 'Counter-parry', effect.counterParry],
+        );
+      }
+      const speedRatio = Object.values(net.weapons).reduce((ratio, effect) => ratio * effect.speedRatio, 1);
+      const burdenUnknown = net.unresolvedCompromise.has('Burden');
+      for (const [section, title, kind] of [
+        ['mainhand', 'Attack Speed Bonus', 'speed'],
+        ['offhand', 'Attack Speed Bonus', 'speed'],
+        ['avoidance', 'Evade', 'evade'],
+      ]) {
+        const current = getLivePanelDetails(section, title);
+        if (!current || burdenUnknown) continue;
+        const diff = getBurdenPanelDelta(current.value, net.actualBurden, net.selectedBurden, kind, speedRatio);
+        if (diff !== null) entries.push([section, title, diff]);
+        else net.notes.push('Wiki未公布负重对' + (kind === 'speed' ? '攻速' : '闪避') +
+          '的完整衰减公式，本次未预览该项变化。');
+      }
+      for (const [element, ratio] of Object.entries(net.elementalRatio)) {
+        const current = getLivePanelDetails('mitigation', element);
+        if (current) entries.push(['mitigation', element, (100 - current.value) * (1 - ratio)]);
+      }
+      for (const [field, value] of Object.entries(net.compromise)) entries.push(['compromise', field, value]);
       if ((net.selectedMaxHealthPercent || 0) || (net.actualMaxHealthPercent || 0)) {
         const vitals = getLivePanelDetails('vitals', 'Base Health');
         if (vitals) entries.push(['vitals', 'Base Health', getCharmVitalDelta(vitals, getTankLevelMultiplier('health'), net.actualMaxHealthPercent, net.selectedMaxHealthPercent)]);
@@ -6711,22 +7187,11 @@ HVEA_SHARED.ui = {
         const key = liveItem.tr || liveItem.td2;
         const entry = pending.get(key) || { item: liveItem, diff: 0, isManaCostModifier: false };
         entry.diff += diff;
-        if (title === 'Mana Cost') entry.isManaCostModifier = true;
+        if (['Mana Cost', 'Burden', 'Interference'].includes(title)) entry.isManaCostModifier = true;
         pending.set(key, entry);
       });
       pending.forEach(({ item, diff, isManaCostModifier }) => setPanelIncrementSource(item, 'charm', diff, isManaCostModifier));
       renderPanelIncrements();
-    }
-
-    function updateWeaponClassDisplays() {
-      if (!popup) return;
-      const slots = getCharmSlots();
-      ['main', 'off'].forEach(key => {
-        const el = popup.querySelector('[data-weapon-class="' + key + '"]');
-        if (!el) return;
-        const cls = resolveWeaponClass(slots[key]);
-        el.textContent = cls ? '(' + (WEAPON_CLASS_LABELS[cls] || cls) + ')' : '';
-      });
     }
 
     function setSlotModified(key, changed) {
@@ -6808,7 +7273,6 @@ HVEA_SHARED.ui = {
           }
           if (pending === 0) charmState.loading = false;
           if (popup?.isConnected) {
-            updateWeaponClassDisplays();
             recalc();
           } else if (upgradePanel && upgradePanel.isConnected) {
             refresh();
@@ -6825,32 +7289,62 @@ HVEA_SHARED.ui = {
       });
       if (pending === 0) {
         charmState.loading = false;
-        updateWeaponClassDisplays();
       }
     }
 
-    function createSection(key, titleText) {
+    function getCharmDescription(type, key, slot) {
+      return ['lesser', 'greater'].map(size => {
+        const effect = getCharmEffect(type, size, resolveWeaponClass(slot), getPlayerLevel(), slot);
+        const parts = [];
+        if (effect.compromisePercent) parts.push('负重、干扰各减少 max(' + effect.compromiseFlat + ', 原值×' + effect.compromisePercent + '%)');
+        if (effect.voidDamage) parts.push('物理攻击转为虚空');
+        if (effect.strikePercent) parts.push(
+          ['火焰', '冰霜', '闪电', '疾风', '神圣', '黑暗', '虚空'][effect.strikeElement] + '打击 ' + effect.strikePercent + '%');
+        if (effect.attackDamagePercent) parts.push('武器攻击伤害 +' + effect.attackDamagePercent + '%');
+        if (effect.attackSpeed) parts.push('攻击速度 +' + effect.attackSpeed + '%');
+        if (effect.attackCritDamage) parts.push('攻击暴击倍率 +' + effect.attackCritDamage);
+        if (effect.counterParry) parts.push('反招架 +' + effect.counterParry + '%');
+        if (effect.accuracyPercent) parts.push('物理命中增加 原值×' + effect.accuracyPercent + '%+' + effect.accuracyFlat);
+        if (effect.weaponMagicDamage) parts.push('武器魔法伤害 +' + effect.weaponMagicDamage + (effect.percent ? '%' : ''));
+        if (effect.weaponMagicBase) parts.push('无原生魔法伤害时先补 ' + effect.weaponMagicBase);
+        if (effect.manaCostReduction) parts.push('魔耗减免 +' + effect.manaCostReduction + '%');
+        if (effect.castSpeed) parts.push('施法速度 +' + effect.castSpeed + '%');
+        if (effect.critDamage) parts.push('魔法暴击倍率 +' + effect.critDamage);
+        if (effect.counterResist) parts.push('反抵抗 +' + effect.counterResist + '%');
+        if (effect.maccPercent) parts.push('魔法命中增加 原值×' + effect.maccPercent + '%+' + effect.maccFlat);
+        const multiplier = getCharmSlotMultiplier(key);
+        if (effect.maxHealthPercent) parts.push('生命 +' + Number((effect.maxHealthPercent * multiplier).toFixed(2)) + '%');
+        if (effect.maxManaPercent) parts.push('法力 +' + Number((effect.maxManaPercent * multiplier).toFixed(2)) + '%');
+        if (effect.elementalMitigation) parts.push(DAMAGE_ELEMENTS[effect.mitigationElement].fullLabel +
+          '缓伤 +' + Number((effect.elementalMitigation * multiplier).toFixed(2)) + '%');
+        return (size === 'lesser' ? '小：' : '大：') + parts.join('；');
+      }).join('\n') + (type === 'featherweight'
+        ? '\n干涉每点增加0.5%魔耗，与魔耗减免相乘。负重降低闪避，超过40还会削弱攻速加成；Wiki未公布完整衰减公式。'
+        : '');
+    }
+
+    function createSection(key) {
       const section = document.createElement('div');
       section.dataset.slot = key;
       section.dataset.role = 'charm-section';
       section.style.cssText = 'margin: 8px 0 4px 0;';
 
-      const header = document.createElement('div');
-      header.style.cssText = 'display: flex; align-items: center; gap: 6px; font-weight: bold; margin-bottom: 3px;';
-      const title = document.createElement('span');
-      title.textContent = titleText;
-      const weaponClass = document.createElement('span');
-      weaponClass.dataset.weaponClass = key;
-      weaponClass.style.cssText = 'color: #666; font-size: 9pt;';
-      header.append(title, weaponClass);
-      section.appendChild(header);
-
       const slots = getCharmSlots();
-      const defenseSlot = isDefenseCharmSlot(key, slots[key]);
+      const slot = slots[key];
       const sizeLabels = { none: '无', lesser: '小', greater: '大' };
-      Object.keys(CHARM_DEFS).forEach(type => {
+      for (const category of CHARM_CATEGORIES) {
+        const types = Object.keys(CHARM_DEFS).filter(type =>
+          CHARM_DEFS[type].category === category.key && isCharmAllowedForSlot(type, key, slot));
+        if (!types.length) continue;
+        const group = document.createElement('div');
+        group.dataset.charmCategory = category.key;
+        const heading = document.createElement('div');
+        heading.textContent = category.label;
+        heading.style.cssText = 'font-weight:bold; padding:5px 0 3px; border-bottom:1px solid #a47c78;';
+        group.appendChild(heading);
+        section.appendChild(group);
+        types.forEach(type => {
         const def = CHARM_DEFS[type];
-        if (defenseSlot ? def.category !== 'defense' : def.category !== 'attack') return;
 
         const row = document.createElement('div');
         row.dataset.slot = key;
@@ -6860,6 +7354,7 @@ HVEA_SHARED.ui = {
 
         const name = document.createElement('span');
         name.textContent = def.label;
+        name.title = getCharmDescription(type, key, slot);
         name.style.cssText = 'white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
 
         const actualSize = document.createElement('span');
@@ -6889,7 +7384,7 @@ HVEA_SHARED.ui = {
         ].join('; ');
 
         row.append(name, actualSize, sizeBtn);
-        section.appendChild(row);
+        group.appendChild(row);
 
         const sizeCycle = ['none', 'lesser', 'greater'];
         sizeBtn.addEventListener('click', () => {
@@ -6904,6 +7399,7 @@ HVEA_SHARED.ui = {
         });
         sizeBtn.addEventListener('contextmenu', event => event.preventDefault());
       });
+      }
 
       return section;
     }
@@ -6921,14 +7417,15 @@ HVEA_SHARED.ui = {
       pop.dataset.hvCharmHand = key;
       pop.style.cssText = [
         'position: absolute',
-        'width: 310px',
+        'width: 330px',
         'max-height: 75vh',
-        'overflow-x: hidden',
-        'overflow-y: auto',
+        'display: flex',
+        'flex-direction: column',
+        'overflow: hidden',
         'background: #f5f0e8',
         'border: 2px solid #5c0d11',
         'border-radius: 8px',
-        'padding: 0 10px 10px 10px',
+        'padding: 0',
         'z-index: 10020',
         'font-family: Verdana, sans-serif',
         'font-size: 10pt',
@@ -6945,10 +7442,11 @@ HVEA_SHARED.ui = {
       const header = document.createElement('div');
       header.style.cssText = [
         'display: flex',
+        'flex-shrink: 0',
         'justify-content: space-between',
         'align-items: center',
         'padding: 6px 10px',
-        'margin: 0 -10px 8px -10px',
+        'margin: 0 0 8px 0',
         'border-bottom: 2px solid #a47c78',
         'background: #d4cfc0',
         'border-radius: 8px 8px 0 0',
@@ -6976,10 +7474,10 @@ HVEA_SHARED.ui = {
       makeDraggable(pop, header);
 
       const body = document.createElement('div');
-      body.style.cssText = 'max-height: calc(75vh - 48px); overflow-x: hidden; overflow-y: auto;';
+      body.style.cssText = 'min-height: 0; padding: 0 10px 10px; overflow-x: hidden; overflow-y: auto;';
       pop.appendChild(body);
 
-      body.appendChild(createSection(key, CHARM_SLOT_LABELS[key] || key));
+      body.appendChild(createSection(key));
 
       effectDisplay = document.createElement('div');
       effectDisplay.dataset.role = 'effect';
@@ -7028,8 +7526,11 @@ HVEA_SHARED.ui = {
       CHARM_SLOT_KEYS.forEach(key => setSlotModified(key, slotHasChanges(key)));
       updatePopupCharmRowStyles();
       if (popup && popup.isConnected) {
-        updateCharmEffectDisplay(charmNet);
-        updateWeaponClassDisplays();
+        const slotNet = getCharmNetEffects(activeSlotKey);
+        if (Math.abs(slotNet.compromise.Burden) >= 0.0001) {
+          slotNet.notes.push(...charmNet.notes.filter(note => note.startsWith('Wiki未公布负重')));
+        }
+        updateCharmEffectDisplay(slotNet);
       }
       scheduleDamagePanelRefresh();
     }
@@ -7038,7 +7539,7 @@ HVEA_SHARED.ui = {
       return getCharmNetEffects().counterResistPanel;
     }
 
-    return { open, close, refresh, registerHandStatusEl, resetHandState, getCounterResistPanelDelta };
+    return { open, close, refresh, registerHandStatusEl, resetHandState, getCounterResistPanelDelta, getWeaponPreview };
   })();    let hvutRowSyncObserver = null;
   let hvutRowSyncTimer = null;
   let hvutRowSyncStopTimer = null;
