@@ -2,7 +2,7 @@
 // @name         HV 装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.6.0
+// @version      1.6.1
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -3093,18 +3093,22 @@ HVEA_SHARED.ui = {
         return Math.max(0.01, Math.min(1, chance));
     }
 
-    function calculateDeprecatingOutcomes(macc, counterResist, resistValue) {
-        if (![macc, counterResist, resistValue].every(Number.isFinite) ||
-            macc <= -100 || resistValue < 0) return null;
-        const ratio = Math.max(0, resistValue * (1 - counterResist / 100)) / (macc + 100);
-        const resist = damageResistanceChance(ratio);
+    function getResistanceRollProbabilities(resist) {
         const pass = 1 - resist;
         return [pass ** 3, 3 * resist * pass ** 2, 3 * resist ** 2 * pass, resist ** 3];
     }
 
-    function getDeprecatingOutcomeTooltip(outcomes) {
-        if (!outcomes) return '未读取到完整魔法命中、减益熟练或目标参数。';
-        return ['0抵抗 100%时间', '1抵抗 75%时间', '2抵抗 50%时间', '3抵抗 减益失败']
+    function calculateDeprecatingOutcomes(macc, counterResist, resistValue) {
+        if (![macc, counterResist, resistValue].every(Number.isFinite) ||
+            macc <= -100 || resistValue < 0) return null;
+        const ratio = Math.max(0, resistValue * (1 - counterResist / 100)) / (macc + 100);
+        return getResistanceRollProbabilities(damageResistanceChance(ratio));
+    }
+
+    function getDeprecatingOutcomeTooltip(outcomes, counterResist) {
+        const header = '减益反抵抗：' + (Number.isFinite(counterResist) ? counterResist.toFixed(2) + '%' : '--') + '\n';
+        if (!outcomes) return header + '未读取到完整魔法命中、减益熟练或目标参数。';
+        return header + ['0抵抗 100%时间', '1抵抗 75%时间', '2抵抗 50%时间', '3抵抗 减益失败']
             .map((label, index) => label + '   ' + (outcomes[index] * 100).toFixed(2) + '%').join('\n') +
             '\n\n怪物抵抗按当前等级满票估算，不计临时状态。';
     }
@@ -3128,10 +3132,19 @@ HVEA_SHARED.ui = {
         return multipliers;
     }
 
-    function calculateSpellDamage({ monster, level, playerLevel, element, mdb, edb, proficiency, macc, cr, dd, tower, imperil, critMultiplier }) {
-        const multipliers = getSpellDamageMultipliers(playerLevel, element);
-        const pf = Math.max(0, Math.min(1, (proficiency - level) / level));
+    function getSpellProficiencyFactor(proficiency, level) {
+        return Math.max(0, Math.min(1, (proficiency - level) / level));
+    }
+
+    function getSpellElementMitigation(monster, element, pf, imperil) {
+        const base = monster.resistance[element.index] + 50 * monster.growth[element.index];
         const profReduction = pf ** 1.5 * 50;
+        return imperil ? Math.max(0, base - (element.index < 4 ? 40 : 25) - profReduction) : base - profReduction;
+    }
+
+    function calculateSpellDamage({ monster, level, playerLevel, element, mdb, edb, proficiency, macc, cr, dd, tower, imperil }) {
+        const multipliers = getSpellDamageMultipliers(playerLevel, element);
+        const pf = getSpellProficiencyFactor(proficiency, level);
         const primary = monster.endurance + 25 * Math.max(6, Math.min(10, monster.endurance * 0.1));
         const secondary = monster.wisdom + 25 * Math.max(6, Math.min(10, monster.wisdom * 0.1));
         const scaled = value => Math.floor(value * level * 0.01 + level ** 1.076675 * 0.3325);
@@ -3139,19 +3152,16 @@ HVEA_SHARED.ui = {
         const monsterHealth = (100 + 500 * 10 + scaledEndurance * 5) * 2 *
             (1 + DAMAGE_CHAOS_LEVEL * 0.05) * Math.max(1, (level - 100) * 0.01);
         const magicMitigation = 1 - 1000 / (1000 + scaledEndurance + scaled(secondary) / 2) * (1 - DAMAGE_CHAOS_LEVEL * 0.01);
-        const elementMitigation = monster.resistance[element.index] + 50 * monster.growth[element.index];
-        const remainingMitigation = imperil
-            ? Math.max(0, elementMitigation - (element.index < 4 ? 40 : 25) - profReduction)
-            : elementMitigation - profReduction;
+        const remainingMitigation = getSpellElementMitigation(monster, element, pf, imperil);
         const received = (1 - magicMitigation * (imperil ? 0.5 : 1)) * (1 - remainingMitigation / 100);
         const resistValue = level * 1.25 * (1 + DAMAGE_CHAOS_LEVEL * 0.05);
         const effectiveResist = Math.max(0, resistValue * (1 - cr / 100 - pf / 2));
         const requiredMacc = Math.max(0, effectiveResist * 3 - 100);
         const ratio = effectiveResist / (macc + 100);
         const resistChance = damageResistanceChance(ratio);
-        const base = mdb * (1 + edb / 100) * (1 + dd / 100) * (1 + tower * 0.001) * 1.25 * critMultiplier;
+        const base = mdb * (1 + edb / 100) * (1 + dd / 100) * (1 + tower * 0.001) * 1.25;
         return {
-            pf, monsterHealth, resistValue, requiredMacc, ratio, resistChance, magicMitigation, elementMitigation, remainingMitigation,
+            pf, monsterHealth, resistValue, requiredMacc, ratio, resistChance, magicMitigation, remainingMitigation,
             t1: base * multipliers.t1 * received,
             t2: base * multipliers.t2 * received,
             t3: base * multipliers.t3 * received,
@@ -3159,21 +3169,85 @@ HVEA_SHARED.ui = {
     }
 
     // EHWiki Damage#Avoidance_Calculation and Combat#Criticals; probabilities use 0..1.
-    function physicalHitChance(accuracy, evade) {
+    function attackHitChance(accuracy, evade) {
         const avoided = accuracy >= evade
             ? Math.max(1, 20 - 10 * (accuracy - evade) / (evade + 100))
             : Math.min(80, 20 + 30 * (evade - accuracy) / (accuracy + 100));
         return 1 - avoided / 100;
     }
 
-    function calculatePhysicalAttackRates(accuracy, evade) {
-        const hit = physicalHitChance(accuracy, evade);
-        const critRoll = Math.min(0.5, physicalHitChance(accuracy / 2, evade));
-        const repeatCrit = Math.min(0.25, physicalHitChance(accuracy / 4, evade));
+    function calculateAttackRates(accuracy, evade) {
+        const hit = attackHitChance(accuracy, evade);
+        const critRoll = Math.min(0.5, attackHitChance(accuracy / 2, evade));
+        const repeatCrit = Math.min(0.25, attackHitChance(accuracy / 4, evade));
         return {
             hit, fullHit: hit ** 2, graze: 2 * hit * (1 - hit), miss: (1 - hit) ** 2,
             crit: hit ** 2 * critRoll, repeatCrit,
         };
+    }
+
+    const SPELL_RESIST_DAMAGE_MULTIPLIERS = [1, 0.5, 0.25, 0.1];
+    const MAX_CRITICAL_COUNT = 9;
+    // Estimate monster evade as twice its level.
+    const getEstimatedMonsterEvade = level => level * 2;
+
+    function calculateSpellKillChance(tier, damage, health, attack, resistChance, critMultiplier) {
+        const targetHealth = Math.round(health);
+        const outcomes = [];
+        const addOutcome = (outcome, probability, damageAfterRolls) => {
+            if (probability <= 0) return;
+            let killRolls = 0;
+            // Compare rounded damage and HP across 41 equally likely rolls (80% to 120%).
+            for (let roll = 80; roll <= 120; roll++) {
+                if (Math.round(damageAfterRolls * roll / 100) >= targetHealth) killRolls++;
+            }
+            outcome.kill += probability * killRolls / 41;
+            outcome.survive += probability * (41 - killRolls) / 41;
+        };
+        // T1 floors at a graze; T2 and T3 floor at a full hit. Neither grants crit eligibility.
+        const alwaysHits = tier >= 2;
+        const fullHit = Math.max(0, attack.fullHit - attack.crit) + (alwaysHits ? attack.graze + attack.miss : 0);
+        const graze = alwaysHits ? 0 : attack.graze + attack.miss;
+        for (const [resists, probability] of getResistanceRollProbabilities(resistChance).entries()) {
+            const multiplier = SPELL_RESIST_DAMAGE_MULTIPLIERS[resists];
+            const makeOutcome = (grazed, critical = false) => {
+                // Labels show the damage retained after graze and resistance, before crits and variance.
+                const scale = grazed ? multiplier * 0.5 : multiplier;
+                const label = `${grazed ? '擦伤' : '命中'} ${resists}抵抗(${scale * 100}%)${critical ? '暴击' : ''}`;
+                const outcome = { label, scale, grazed, critical, kill: 0, survive: 0 };
+                outcomes.push(outcome);
+                return outcome;
+            };
+            const hitOutcome = makeOutcome(false);
+            const critOutcome = makeOutcome(false, true);
+            const grazeOutcome = makeOutcome(true);
+            const resistedDamage = damage * multiplier;
+            addOutcome(hitOutcome, fullHit * probability, resistedDamage);
+            addOutcome(grazeOutcome, graze * probability, resistedDamage * 0.5);
+            // Only natural full hits can crit. Count one crit and no follow-up damage.
+            addOutcome(critOutcome, attack.crit * probability, resistedDamage * critMultiplier);
+        }
+        const kill = outcomes.reduce((sum, outcome) => sum + outcome.kill, 0);
+        const survive = outcomes.reduce((sum, outcome) => sum + outcome.survive, 0);
+        return { outcomes, probability: kill / (kill + survive) };
+    }
+
+    function formatSpellKillProbability(probability) {
+        const percent = (probability * 100).toFixed(2);
+        if (probability > 0 && percent === '0.00') return '<0.01%';
+        if (probability < 1 && percent === '100.00') return '>99.99%';
+        return percent + '%';
+    }
+
+    function getSpellKillTooltip(tier, result) {
+        if (!result) return '未读取到魔法暴击伤害倍率，无法估算秒杀率。';
+        const outcomes = result.outcomes.filter(({ kill, survive }) => kill > 0 || survive > 0)
+            .sort((a, b) => b.scale - a.scale || Number(a.grazed) - Number(b.grazed) || Number(a.critical) - Number(b.critical));
+        return ['T' + tier + '：单次施法击杀满血单体（估算）',
+            '分支：发生概率 / 秒杀贡献',
+            ...outcomes.map(({ label, kill, survive }) => label + '：' +
+                formatSpellKillProbability(Math.min(1, kill + survive)) + ' / ' + formatSpellKillProbability(kill)),
+        ].join('\n');
     }
 
     function physicalParryChance(accuracy, parry, counterParry = 0) {
@@ -3201,7 +3275,7 @@ HVEA_SHARED.ui = {
         const endurance = scaled(monster.endurance);
         return {
             // Reference estimates; individual monsters can have different ratings.
-            evade: level * 2,
+            evade: getEstimatedMonsterEvade(level),
             parry: level * 2.5,
             physicalMitigation: 1 - 1000 / (1000 + endurance + scaled(monster.agility) / 2) *
                 (1 - DAMAGE_CHAOS_LEVEL * 0.01),
@@ -3244,7 +3318,7 @@ HVEA_SHARED.ui = {
 
     function calculatePhysicalDamage({ damage, accuracy, critMultiplier, type, monster, target, counterParry = 0,
         dd, tower, title, heartseeker, spirit, imperil, armorBreak }) {
-        const rates = calculatePhysicalAttackRates(accuracy, target.evade);
+        const rates = calculateAttackRates(accuracy, target.evade);
         const physicalMitigation = target.physicalMitigation *
             (imperil ? 0.5 : 1) * [1, 0.75, 0.5, 0.25][armorBreak];
         const typeMitigation = type === 3 ? 0 : monster.physical[type] / 100;
@@ -3255,7 +3329,7 @@ HVEA_SHARED.ui = {
         const critBonus = critMultiplier - 1 + heartseeker / 100;
         // Each successful repeat adds one more crit bonus; the game caps this at nine.
         const expectedCrits = rates.crit *
-            Array.from({ length: 9 }, (_, index) => rates.repeatCrit ** index).reduce((sum, value) => sum + value, 0);
+            Array.from({ length: MAX_CRITICAL_COUNT }, (_, index) => rates.repeatCrit ** index).reduce((sum, value) => sum + value, 0);
         const parryChance = physicalParryChance(accuracy, target.parry ?? 0, counterParry);
         return {
             ...rates, parryChance, physicalMitigation, typeMitigation, beforeTypeMitigation,
@@ -3601,9 +3675,9 @@ HVEA_SHARED.ui = {
             '<tr><td>怪物抵抗值</td><td data-role="damage-resist-value">--</td></tr>' +
             '<tr><td>抵抗倍率 / 概率</td><td data-role="damage-resist">--</td></tr>' +
             '<tr><td>怪物血量</td><td data-role="damage-health">--</td></tr>' +
-            '<tr><td>T1</td><td data-role="damage-t1">--</td></tr>' +
-            '<tr><td>T2</td><td data-role="damage-t2">--</td></tr>' +
-            '<tr><td>T3</td><td data-role="damage-t3">--</td></tr>' +
+            [1, 2, 3].map(tier => '<tr><td>T' + tier + ' 伤害 / 秒杀率</td><td>' +
+                '<span data-role="damage-t' + tier + '">--</span> / ' +
+                '<span data-role="damage-kill-t' + tier + '">--</span></td></tr>').join('') +
             '</tbody></table><div data-role="damage-error"></div></div>';
         if (warrior) {
             panel.addEventListener('click', event => {
@@ -3641,7 +3715,7 @@ HVEA_SHARED.ui = {
                 '<tr><td>--</td><td>法师综合分</td></tr>' +
                 '<tr><td>--</td><td>降低元素缓伤</td></tr>' +
                 '<tr><td>--</td><td>反抵抗</td></tr>' +
-                '<tr><td>--</td><td>' + (IS_ISEKAI_PAGE ? '减益反抵抗' : '减益命中率') + '</td></tr>' +
+                '<tr><td>--</td><td>减益命中率</td></tr>' +
                 '<tr><td>--</td><td>治疗术加成</td></tr>' +
                 '</tbody></table>';
             stats.appendChild(panel);
@@ -3942,11 +4016,11 @@ HVEA_SHARED.ui = {
         return cr + Math.max(0, Math.min(1, proficiency / level - 1)) * 50;
     }
 
-    function getDeprecatingOutcomesWithIncrements() {
+    function getDeprecatingOutcomesWithIncrements(counterResist) {
         const field = document.querySelector('#hv-damage-panel [data-input="level"]');
         const level = field ? Number(field.value) : getPlayerLevel();
         return calculateDeprecatingOutcomes(
-            getMagicAccuracyWithIncrements(), getDeprecatingCounterResistWithIncrements(),
+            getMagicAccuracyWithIncrements(), counterResist,
             level * 1.25 * (1 + DAMAGE_CHAOS_LEVEL * 0.05),
         );
     }
@@ -3994,16 +4068,17 @@ HVEA_SHARED.ui = {
         set('crit', weaponValue(section => {
             const accuracy = getPhysicalPanelValue(section, 'Accuracy', ['命中']);
             if (!settings || !Number.isFinite(accuracy) || accuracy < 0) return '--';
-            return percent(calculatePhysicalAttackRates(accuracy, settings.target.evade).crit * 100);
+            return percent(calculateAttackRates(accuracy, settings.target.evade).crit * 100);
         }));
         const level = getPlayerLevel();
         const supportive = getOtherMagicProficiencyWithIncrements('Supportive', '增益');
         const suppFactor = Number.isFinite(supportive) ? Math.min(1, supportive / level - 1) : null;
         set('healing', percent(suppFactor === null ? null : suppFactor * (suppFactor > 0 ? 50 : 20)));
-        const outcomes = settings ? getDeprecatingOutcomesWithIncrements() : null;
+        const debuffCounterResist = getDeprecatingCounterResistWithIncrements();
+        const outcomes = getDeprecatingOutcomesWithIncrements(debuffCounterResist);
         set('debuff-hit', percent(outcomes ? (1 - outcomes[3]) * 100 : null));
         const debuffHit = panel.querySelector('[data-role="warrior-debuff-hit"]');
-        debuffHit.title = getDeprecatingOutcomeTooltip(outcomes);
+        debuffHit.title = getDeprecatingOutcomeTooltip(outcomes, debuffCounterResist);
     }
 
     function renderMageStatsPanel() {
@@ -4020,21 +4095,19 @@ HVEA_SHARED.ui = {
 
         const pf = Math.max(0, Math.min(1, proficiency / level - 1));
         const deprecatingCr = getDeprecatingCounterResistWithIncrements();
-        const deprecatingOutcomes = IS_ISEKAI_PAGE ? null : getDeprecatingOutcomesWithIncrements();
+        const deprecatingOutcomes = getDeprecatingOutcomesWithIncrements(deprecatingCr);
         const suppFactor = Math.min(1, supportive / level - 1);
         const values = [
             String(Math.round(mdb * (1 + element.value / 100))),
             (pf ** 1.5 * 50).toFixed(2) + '%',
             (cr + pf * 50).toFixed(2) + '%',
-            IS_ISEKAI_PAGE
-                ? (Number.isFinite(deprecatingCr) ? deprecatingCr.toFixed(2) + '%' : '--')
-                : (deprecatingOutcomes ? ((1 - deprecatingOutcomes[3]) * 100).toFixed(2) + '%' : '--'),
+            deprecatingOutcomes ? ((1 - deprecatingOutcomes[3]) * 100).toFixed(2) + '%' : '--',
             (suppFactor * (suppFactor > 0 ? 50 : 20)).toFixed(2) + '%',
         ];
         values.forEach((value, index) => {
             if (rows[index].cells[0].textContent !== value) rows[index].cells[0].textContent = value;
         });
-        if (!IS_ISEKAI_PAGE) rows[3].cells[0].title = getDeprecatingOutcomeTooltip(deprecatingOutcomes);
+        rows[3].cells[0].title = getDeprecatingOutcomeTooltip(deprecatingOutcomes, deprecatingCr);
         const sources = getCurrentCounterResistBreakdown(cr);
         rows[2].cells[0].title = [
             'PF：' + (pf * 50).toFixed(2) + '%',
@@ -4071,7 +4144,8 @@ HVEA_SHARED.ui = {
         }
         renderMageStatsPanel();
         const input = role => panel.querySelector('[data-input="' + role + '"]');
-        const output = (role, value) => { panel.querySelector('[data-role="damage-' + role + '"]').textContent = value; };
+        const outputNode = role => panel.querySelector('[data-role="damage-' + role + '"]');
+        const output = (role, value) => { outputNode(role).textContent = value; };
         const num = role => input(role).value.trim() === '' ? NaN : Number(input(role).value);
         const monster = DAMAGE_MONSTERS[Number(input('monster').value)];
         const level = num('level');
@@ -4084,18 +4158,27 @@ HVEA_SHARED.ui = {
         const macc = getMagicAccuracyWithIncrements();
         const cr = getCurrentCounterResist();
         const proficiency = getMagicProficiencyWithIncrements(selectedName);
-        const panelCritMultiplier = input('crit').checked ? getMagicCritMultiplierWithIncrements() : 1;
-        const critMultiplier = input('crit').checked
-            ? (Number.isFinite(panelCritMultiplier) ? panelCritMultiplier + getArcaneFocusCritBonus(getPlayerLevel()) / 100 : NaN)
-            : 1;
+        const playerLevel = getPlayerLevel();
+        const panelCritMultiplier = getMagicCritMultiplierWithIncrements();
+        const critMultiplier = Number.isFinite(panelCritMultiplier)
+            ? panelCritMultiplier + getArcaneFocusCritBonus(playerLevel) / 100 : NaN;
+        const previewCritMultiplier = input('crit').checked ? critMultiplier : 1;
+        const imperil = input('imperil').checked;
+        const mitigationRow = outputNode('mitigation').parentElement;
         const valid = monster && element && Number.isInteger(level) && level > 0 &&
-            [mdb, edb, proficiency, macc, cr, dd, tower, critMultiplier].every(Number.isFinite) &&
-            critMultiplier > 0 &&
+            [mdb, edb, proficiency, macc, cr, dd, tower, previewCritMultiplier].every(Number.isFinite) &&
+            previewCritMultiplier > 0 &&
             macc > -100 && dd >= 0 && tower >= 0 && tower <= 100;
         const error = panel.querySelector('[data-role="damage-error"]');
         if (!valid) {
             renderMagePenetration(null);
+            mitigationRow.removeAttribute('title');
             for (const role of ['element', 'mitigation', 'resist-value', 'resist', 'health', 't3', 't2', 't1']) output(role, '--');
+            for (const tier of [1, 2, 3]) {
+                const killNode = outputNode('kill-t' + tier);
+                killNode.textContent = '--';
+                killNode.removeAttribute('title');
+            }
             error.textContent = !element ? '未读取到主元素' :
                 input('crit').checked && !(critMultiplier > 0) ? '未读取到魔法暴击伤害倍率' :
                 ![mdb, edb, proficiency, macc].every(Number.isFinite) ? '未读取到完整魔法面板数据' : '请检查怪物或参数输入';
@@ -4103,22 +4186,38 @@ HVEA_SHARED.ui = {
         }
         error.textContent = '';
         const result = calculateSpellDamage({
-            monster, level, element, mdb, edb, proficiency, macc, cr, dd, tower,
-            playerLevel: getPlayerLevel(),
-            imperil: input('imperil').checked,
-            critMultiplier,
+            monster, level, playerLevel, element, mdb, edb, proficiency, macc, cr, dd, tower,
+            imperil,
         });
         renderMagePenetration(result);
         const damage = value => Math.round(value).toLocaleString('en-US');
         output('element', element.label + ' / ' + result.pf.toFixed(3));
-        output('mitigation', (result.magicMitigation * (input('imperil').checked ? 0.5 : 1) * 100).toFixed(1) +
+        output('mitigation', (result.magicMitigation * (imperil ? 0.5 : 1) * 100).toFixed(1) +
             '% / ' + result.remainingMitigation.toFixed(1) + '%');
+        mitigationRow.title = [monster.name + '：元素缓伤', ...Object.entries(DAMAGE_ELEMENTS).map(([name, type]) => {
+            const prof = name === selectedName ? proficiency : getMagicProficiencyWithIncrements(name);
+            const remaining = Number.isFinite(prof)
+                ? getSpellElementMitigation(monster, type, getSpellProficiencyFactor(prof, level), imperil).toFixed(1) + '%'
+                : '--';
+            return type.label + '：' + remaining;
+        })].join('\n');
         output('resist-value', result.resistValue.toFixed(1));
-        output('resist', result.ratio.toFixed(3) + ' / ' + (result.resistChance * 100).toFixed(1) + '%');
+        const resistPercent = (result.resistChance * 100).toFixed(1);
+        const resistPrefix = result.resistChance > 0.01 && resistPercent === '1.0' ? '>' : '';
+        output('resist', result.ratio.toFixed(3) + ' / ' + resistPrefix + resistPercent + '%');
         output('health', damage(result.monsterHealth));
-        output('t3', damage(result.t3));
-        output('t2', damage(result.t2));
-        output('t1', damage(result.t1));
+        const evade = getEstimatedMonsterEvade(level);
+        const attack = calculateAttackRates(macc, evade);
+        for (const tier of [1, 2, 3]) {
+            const baseDamage = result['t' + tier];
+            output('t' + tier, damage(baseDamage * previewCritMultiplier));
+            const kill = critMultiplier >= 1
+                ? calculateSpellKillChance(tier, baseDamage, result.monsterHealth, attack, result.resistChance, critMultiplier)
+                : null;
+            const killNode = outputNode('kill-t' + tier);
+            killNode.textContent = kill ? formatSpellKillProbability(kill.probability) : '--';
+            killNode.title = getSpellKillTooltip(tier, kill);
+        }
         positionDamagePanel();
     }
 
