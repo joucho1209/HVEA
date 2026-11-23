@@ -2,7 +2,7 @@
 // @name         HV 装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.6.2
+// @version      1.6.3
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -8093,6 +8093,14 @@ HVEA_SHARED.ui = {
       border-bottom: 1px dotted #9b4e03;
       cursor: help;
     }
+    .hv-ms-peerless-hint[data-peerless-hint]::after {
+      content: attr(data-peerless-hint);
+      margin-left: 4px;
+      color: #6b6257;
+      font-size: 0.92em;
+      font-weight: normal;
+      cursor: help;
+    }
     .hv-ms-tip {
       position: fixed;
       z-index: 100000;
@@ -8117,6 +8125,68 @@ HVEA_SHARED.ui = {
       grid-template-columns: repeat(2, minmax(0, auto));
       gap: 1px 10px;
       white-space: nowrap;
+    }
+    .hv-ms-tip .hv-ms-peerless-details {
+      grid-template-columns: minmax(0, auto);
+    }
+    #hv-peerless-detail-overlay {
+      position: fixed;
+      z-index: 100001;
+      display: none;
+      flex-direction: column;
+      width: min(620px, calc(100vw - 28px));
+      max-height: min(78vh, 720px);
+      overflow: hidden;
+      color: #222;
+      background: #f5f0e8;
+      border: 2px solid #5c0d11;
+      border-radius: 6px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, .3);
+      font: 9pt Verdana, sans-serif;
+    }
+    #hv-peerless-detail-overlay.open { display: flex; }
+    .hv-peerless-detail-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 8px;
+      color: #5c0d11;
+      background: #d4cfc0;
+      border-bottom: 1px solid #a47c78;
+      cursor: move;
+      font-weight: bold;
+    }
+    .hv-peerless-detail-close {
+      padding: 0 5px;
+      border: 0;
+      color: #5c0d11;
+      background: transparent;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+    }
+    .hv-peerless-detail-body {
+      overflow: auto;
+      padding: 8px 10px 10px;
+    }
+    .hv-peerless-detail-note {
+      margin-bottom: 8px;
+      color: #6b6257;
+    }
+    .hv-peerless-detail-round {
+      margin: 0 0 8px;
+      padding: 6px 8px;
+      border: 1px solid #c8b9a6;
+      background: rgba(255, 255, 255, .35);
+    }
+    .hv-peerless-detail-round-title {
+      margin-bottom: 3px;
+      color: #5c0d11;
+      font-weight: bold;
+    }
+    .hv-peerless-detail-requirement {
+      display: block;
+      line-height: 1.45;
     }
     #popup_box[data-hvea-fusion-tip] {
       position: fixed !important;
@@ -8267,6 +8337,29 @@ HVEA_SHARED.ui = {
       font: 10pt Verdana, sans-serif;
     }
     #hv-fusion-custom-overlay form { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+    .hv-ms-custom-random {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .hv-ms-custom-random label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    .hv-ms-custom-random input {
+      width: 72px;
+      box-sizing: border-box;
+      font: inherit;
+    }
+    .hv-ms-custom-avg {
+      width: 64px;
+      min-width: 0;
+      box-sizing: border-box;
+      font: inherit;
+    }
     .hv-ms-custom-attrs {
       display: grid;
       grid-template-columns: minmax(0, 1fr);
@@ -9904,15 +9997,22 @@ HVEA_SHARED.ui = {
         <button type="button" class="hv-ms-close" data-close title="关闭" aria-label="关闭">×</button>
       </div>
       <form novalidate>
+        <div class="hv-ms-custom-random">
+          <label>优秀度
+            <input class="hv-ms-custom-avg" data-avg type="number" min="0" max="100" step="0.1" value="50.0">
+          </label>
+          <button type="button" class="hvea-secondary-button" data-random-rolls>生成</button>
+        </div>
         <div class="hv-ms-custom-attrs"></div>
         <div class="hv-ms-custom-error" role="status" aria-live="polite"></div>
         <div class="hv-ms-custom-actions">
-          <button type="button" class="hvea-secondary-button" data-close>取消</button>
           <button type="submit" class="hvea-secondary-button">添加素材</button>
         </div>
       </form>`;
     const fields = new Map();
     const attrsContainer = overlay.querySelector(".hv-ms-custom-attrs");
+    const avgInput = overlay.querySelector("[data-avg]");
+    const randomButton = overlay.querySelector("[data-random-rolls]");
     for (const key of attrKeys) {
       const label = document.createElement("label");
       const name = document.createElement("span");
@@ -9940,6 +10040,38 @@ HVEA_SHARED.ui = {
       label.append(name, input);
       attrsContainer.appendChild(label);
     }
+    randomButton.addEventListener("click", () => {
+      const rawAvg = Number(avgInput.value);
+      if (!Number.isFinite(rawAvg) || rawAvg < 0 || rawAvg > 100) {
+        overlay.querySelector(".hv-ms-custom-error").textContent = "AVG（优秀度）必须为 0～100%。";
+        avgInput.focus();
+        return;
+      }
+      const inputs = [...fields.values()];
+      const quality = "Legendary";
+      const [qualityMin, qualityMax] = QUALITY_RANGES[quality];
+      const targetAverageRoll = qualityMin + (qualityMax - qualityMin) * rawAvg / 100;
+      const targetTotal = Math.max(
+        qualityMin * inputs.length,
+        Math.min(qualityMax * inputs.length, Math.round(targetAverageRoll * inputs.length)),
+      );
+      const values = inputs.map(() => 170);
+      let remaining = targetTotal - qualityMin * values.length;
+      while (remaining > 0) {
+        const available = values
+          .map((value, index) => ({ value, index }))
+          .filter((item) => item.value < 200);
+        if (!available.length) break;
+        const item = available[Math.floor(Math.random() * available.length)];
+        const amount = Math.min(remaining, 1 + Math.floor(Math.random() * Math.min(5, 200 - item.value)));
+        values[item.index] += amount;
+        remaining -= amount;
+      }
+      inputs.forEach((input, index) => { input.value = String(values[index]); });
+      const actualAverageRoll = values.reduce((sum, value) => sum + value, 0) / values.length;
+      avgInput.value = (((actualAverageRoll - qualityMin) / (qualityMax - qualityMin)) * 100).toFixed(1);
+      overlay.querySelector(".hv-ms-custom-error").textContent = "";
+    });
     const close = () => overlay.remove();
     overlay.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", close));
     overlay.addEventListener("keydown", (event) => {
@@ -9981,7 +10113,6 @@ HVEA_SHARED.ui = {
       state.activeTab = "other";
       refreshUI();
       saveState();
-      close();
       setStatus(`已添加自定义装备：${donor.name}。`, "ok");
     });
     document.body.appendChild(overlay);
@@ -10347,6 +10478,74 @@ HVEA_SHARED.ui = {
     equipTip.replaceChildren();
   }
 
+  function showPeerlessFusionTip(steps, event) {
+    hideEquipTip();
+    if (!Array.isArray(steps) || !steps.length) return;
+    const title = document.createElement("div");
+    title.className = "hv-ms-tip-name";
+    title.textContent = "理论升 P 融合变化（全属性 200 素材）｜点击查看详情";
+    equipTip.appendChild(title);
+    const details = document.createElement("div");
+    details.className = "hv-ms-tip-attrs hv-ms-peerless-details";
+    steps.forEach((step) => {
+      const row = document.createElement("span");
+      row.textContent = step;
+      details.appendChild(row);
+    });
+    equipTip.appendChild(details);
+    equipTip.style.display = "block";
+    moveEquipTip(event);
+  }
+
+  function openPeerlessFusionDetails(rounds, count) {
+    let overlay = document.getElementById("hv-peerless-detail-overlay");
+    let firstOpen = false;
+    if (!overlay) {
+      firstOpen = true;
+      overlay = document.createElement("section");
+      overlay.id = "hv-peerless-detail-overlay";
+      overlay.innerHTML = `
+        <div class="hv-peerless-detail-header">
+          <span>理论升 P 详情</span>
+          <button type="button" class="hv-peerless-detail-close" aria-label="关闭">×</button>
+        </div>
+        <div class="hv-peerless-detail-body"></div>
+      `;
+      document.body.appendChild(overlay);
+      overlay.querySelector(".hv-peerless-detail-close").addEventListener("click", () => overlay.classList.remove("open"));
+      makeDraggable(overlay, overlay.querySelector(".hv-peerless-detail-header"));
+    }
+    const body = overlay.querySelector(".hv-peerless-detail-body");
+    body.replaceChildren();
+    const note = document.createElement("div");
+    note.className = "hv-peerless-detail-note";
+    note.textContent = `理论最少 ${count} 次融合；假设每次使用全属性 200 的完美素材。素材低于门槛时，实际次数可能增加。`;
+    body.appendChild(note);
+    rounds.forEach((round) => {
+      const section = document.createElement("section");
+      section.className = "hv-peerless-detail-round";
+      const heading = document.createElement("div");
+      heading.className = "hv-peerless-detail-round-title";
+      heading.textContent = `第${round.index}次：增加 ${round.totalGain} 点属性（${round.beforePercent.toFixed(1)}%→${round.afterPercent.toFixed(1)}%）`;
+      section.appendChild(heading);
+      round.requirements.forEach((requirement) => {
+        const line = document.createElement("span");
+        line.className = "hv-peerless-detail-requirement";
+        line.textContent = requirement;
+        section.appendChild(line);
+      });
+      body.appendChild(section);
+    });
+    overlay.classList.add("open");
+    if (firstOpen) {
+      requestAnimationFrame(() => {
+        overlay.style.left = `${Math.max(8, Math.round((window.innerWidth - overlay.offsetWidth) / 2))}px`;
+        overlay.style.top = `${Math.max(8, Math.round((window.innerHeight - overlay.offsetHeight) / 2))}px`;
+      });
+    }
+    HVEA_SHARED.ui.focusWindow(overlay);
+  }
+
   function openFusionEquipment(equip, event) {
     event.preventDefault();
     event.stopPropagation();
@@ -10549,8 +10748,93 @@ HVEA_SHARED.ui = {
     nameText.id = "hv-minsteps-main-title";
     nameText.className = "hv-ms-equip-name";
     nameText.textContent = titleName;
+    let projectedAttrs = { ...equip.attrs };
+    let minimumFusionCount = 0;
+    const fusionSteps = [];
+    const fusionRounds = [];
+    let hintSpan = null;
+    const simulateAdds = (donorValue) => {
+      const adds = {};
+      let overflow = 0;
+      for (const key of state.attrKeys) {
+        const current = Number(projectedAttrs[key] || 0);
+        const baseGain = donorValue > current ? 2 : 1;
+        if (current >= 200) {
+          adds[key] = 0;
+          overflow += baseGain;
+        } else {
+          adds[key] = Math.min(baseGain, 200 - current);
+        }
+      }
+      while (overflow > 0) {
+        const candidates = state.attrKeys
+          .map((key, index) => ({ key, index, value: Number(projectedAttrs[key] || 0) }))
+          .sort((a, b) => a.value - b.value || a.index - b.index);
+        let assigned = false;
+        for (const item of candidates) {
+          if (overflow <= 0) break;
+          if (item.value + adds[item.key] < 200) {
+            adds[item.key] += 1;
+            overflow -= 1;
+            assigned = true;
+          }
+        }
+        if (!assigned) break;
+      }
+      return adds;
+    };
+    while (state.attrKeys.length && state.attrKeys.some((key) => Number(projectedAttrs[key] || 0) < 200)) {
+      const beforePercent = qualityPercent(projectedAttrs, equip.quality);
+      const adds = simulateAdds(200);
+      const worstAdds = simulateAdds(0);
+      const sameAsWorstRoll = state.attrKeys.every((key) => adds[key] === worstAdds[key]);
+      const requirements = sameAsWorstRoll
+        ? state.attrKeys.map((key) => `${translateEquipTipAttribute(key)}：无`)
+        : state.attrKeys.map((key) => {
+          const current = Number(projectedAttrs[key] || 0);
+          return `${translateEquipTipAttribute(key)}：${current >= 200 ? "无" : `>${current}`}`;
+        });
+      let totalGain = 0;
+      for (const key of state.attrKeys) {
+        projectedAttrs[key] = Number(projectedAttrs[key] || 0) + adds[key];
+        totalGain += adds[key];
+      }
+      minimumFusionCount += 1;
+      const afterPercent = qualityPercent(projectedAttrs, equip.quality);
+      fusionSteps.push(`${minimumFusionCount} 增加 ${totalGain} 点属性（${beforePercent.toFixed(1)}%→${afterPercent.toFixed(1)}%）`);
+      fusionRounds.push({
+        index: minimumFusionCount,
+        totalGain,
+        beforePercent,
+        afterPercent,
+        requirements,
+      });
+      if (minimumFusionCount > 1000) {
+        minimumFusionCount = null;
+        break;
+      }
+    }
+    if (minimumFusionCount !== null) {
+      hintSpan = document.createElement("span");
+      hintSpan.className = "hv-ms-peerless-hint";
+      hintSpan.dataset.peerlessHint = `（理论最少${minimumFusionCount}次融合）`;
+      hintSpan.addEventListener("mouseenter", (event) => showPeerlessFusionTip(fusionSteps, event));
+      hintSpan.addEventListener("mousemove", moveEquipTip);
+      hintSpan.addEventListener("mouseleave", hideEquipTip);
+      hintSpan.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        hideEquipTip();
+        if (minimumFusionCount === 0) {
+          showToast("当前装备已为P装", "ok");
+          return;
+        }
+        openPeerlessFusionDetails(fusionRounds, minimumFusionCount);
+      });
+    }
     idSpan.append(idText, " ", nameText);
     mainName.replaceChildren(idSpan);
+    if (hintSpan) mainName.appendChild(hintSpan);
     displayMainBasePreview(equip, changes).catch(() => {});
     mainPreview.replaceChildren();
 
