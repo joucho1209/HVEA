@@ -2,7 +2,7 @@
 // @name         HV 装备助手
 // @name:en      HV Equipment Assistant
 // @namespace    HVEA
-// @version      1.6.1
+// @version      1.6.2
 // @homepageURL  https://github.com/joucho1209/HVEA
 // @icon         https://hentaiverse.org/y/favicon.png
 // @updateURL    https://raw.githubusercontent.com/joucho1209/HVEA/main/HV%20Equipment%20Assistant.js
@@ -2618,6 +2618,7 @@ HVEA_SHARED.ui = {
             if (!slot || !slot.available || !Array.isArray(slot.stats) || slot.stats.length === 0) return;
             const charms = getSlotAttackCharms(slot, index);
             for (const stat of slot.stats) {
+                if (['Mana Cost', 'Mana Conservation', 'Attack Speed'].includes(stat.title)) continue;
                 const current = stat?.source === 'charm'
                     ? (Number.isFinite(Number(stat.val)) ? Number(stat.val) : 0)
                     : getPureEquipmentStatValue(slot, stat.title, levelMap, charms);
@@ -2792,6 +2793,7 @@ HVEA_SHARED.ui = {
         const actual = effects(actualCharms);
         const selected = effects(selectedCharms);
         const sum = (list, field) => list.reduce((total, effect) => total + (Number(effect[field]) || 0), 0);
+        const speedFactor = list => list.reduce((factor, effect) => factor * (1 - (Number(effect.attackSpeed) || 0) / 100), 1);
         const delta = field => sum(selected, field) - sum(actual, field);
         const damageTitle = slot?.stats?.find(stat =>
             ['Crushing Damage', 'Slashing Damage', 'Piercing Damage', 'Void Damage'].includes(stat.title))?.title;
@@ -2825,7 +2827,7 @@ HVEA_SHARED.ui = {
             accuracy: accuracy * delta('accuracyPercent') / 100 + delta('accuracyFlat'),
             crit: delta('attackCritDamage'),
             speed: delta('attackSpeed'),
-            speedRatio: (1 - sum(selected, 'attackSpeed') / 100) / (1 - sum(actual, 'attackSpeed') / 100),
+            speedRatio: speedFactor(selected) / speedFactor(actual),
             counterParry: delta('counterParry'),
             strikes: Array.from(strikes.values()).filter(strike => strike.fraction > 0.000001),
             strikeChanges: Array.from(strikes.values()).map(strike => ({
@@ -2859,6 +2861,35 @@ HVEA_SHARED.ui = {
         if (actual === null || selected === null || actual === 0) return null;
         const pure = current / actual;
         return (kind === 'speed' ? 100 - (100 - pure) * speedRatio : pure) * selected - current;
+    }
+
+    function getUpgradeAttackSpeedRatio(slots, levels) {
+        return slots.reduce((ratio, slot, index) => {
+            if (!slot?.available) return ratio;
+            const charms = getSlotAttackCharms(slot, index);
+            const before = getPureEquipmentStatValue(slot, 'Attack Speed', null, charms);
+            const after = getPureEquipmentStatValue(slot, 'Attack Speed', levels, charms);
+            return before === after || before >= 100 ? ratio : ratio * (100 - after) / (100 - before);
+        }, 1);
+    }
+
+    function getAgilityAttackSpeedFactor(agility, level) {
+        return 1 - Math.min(0.1, Math.max(0, (agility - level) / level * 0.1));
+    }
+
+    function getManaCostModifier(slots, level, interference, levels, actualCharmsFor, selectedCharmsFor = actualCharmsFor) {
+        let remainingCost = 1;
+        for (const [key, slot] of slots) {
+            if (!slot) continue;
+            const actualCharms = actualCharmsFor(slot, key);
+            const selectedCharms = selectedCharmsFor(slot, key);
+            const weaponClass = resolveWeaponClass(slot);
+            const selectedReduction = (selectedCharms || []).reduce((sum, charm) =>
+                sum + (getCharmEffect(charm?.type, charm?.size, weaponClass, level, slot)?.manaCostReduction || 0), 0);
+            const reduction = getPureEquipmentStatValue(slot, 'Mana Cost', levels, actualCharms) + selectedReduction;
+            remainingCost *= 1 - Math.min(100, Math.max(0, reduction)) / 100;
+        }
+        return Math.max(-50, ((1 + Math.max(0, interference) * 0.005) * remainingCost - 1) * 100);
     }
 
     const slotAttackCharmsCache = new WeakMap();
@@ -2907,9 +2938,6 @@ HVEA_SHARED.ui = {
                 ['attackCritDamage', 'Attack Crit Damage'], ['counterParry', 'Counter-parry'],
             ]) {
                 if (effect[field]) targets.push({ title, pct: 0, flat: effect[field] });
-            }
-            if (effect.attackSpeed) {
-                targets.push({ title: 'Attack Speed', pct: -effect.attackSpeed, flat: effect.attackSpeed });
             }
             if (Number(effect.maccPercent) || Number(effect.maccFlat)) {
                 targets.push({ title: 'Magic Accuracy', pct: Number(effect.maccPercent) || 0, flat: Number(effect.maccFlat) || 0 });
@@ -4647,11 +4675,6 @@ HVEA_SHARED.ui = {
     const spInc = currSp - initSp;
     if (Math.abs(spInc) > 0.01) derived['Base Spirit|vitals'] = spInc;
 
-    const baseSpeed = Math.max(0, (initAttr.agi - playerLevel) * 0.1 / playerLevel);
-    const currSpeed = Math.max(0, (currAttr.agi - playerLevel) * 0.1 / playerLevel);
-    const asInc = currSpeed - baseSpeed;
-    if (Math.abs(asInc) > 0.0001) derived['Attack Speed Bonus|mainhand'] = asInc * 100;
-
     return derived;
   }
 
@@ -5459,22 +5482,33 @@ HVEA_SHARED.ui = {
       }
 
       let derivedIncrements = {};
+      let speedRatio = getUpgradeAttackSpeedRatio(equipSlots, state);
       const effectiveBaseStats = activeUpgradeSimulation?.baseStats || baseStats;
       if (effectiveBaseStats) {
         const equipInit = calculateEquipPrimaryBonus(equipSlots, initialLevels);
         const equipCurr = calculateEquipPrimaryBonus(equipSlots, state);
         derivedIncrements = calculateDerivedIncrements(effectiveBaseStats, equipInit, equipCurr, playerLevel, tankSettings);
-      } else {
+        const agility = effectiveBaseStats.agi || 0;
+        speedRatio *= getAgilityAttackSpeedFactor(agility + (equipCurr.agi || 0), playerLevel) /
+          getAgilityAttackSpeedFactor(agility + (equipInit.agi || 0), playerLevel);
       }
 
-      updateStatsDisplay(increments, derivedIncrements);
+      const equipped = equipSlots.map(slot => slot?.available ? slot : null);
+      const interference = findEnglishPanelRow('compromise', 'Interference')?.value ??
+        equipped.reduce((sum, slot) => sum + (Number(slot?.compromise?.Interference) || 0), 0);
+      const actualManaCost = getManaCostModifier(equipped.entries(), playerLevel, interference, null, getSlotAttackCharms);
+      const upgradedManaCost = getManaCostModifier(equipped.entries(), playerLevel, interference, state, getSlotAttackCharms);
+      if (Math.abs(actualManaCost - upgradedManaCost) >= 0.0001) {
+        increments['Mana Cost|magic'] = actualManaCost - upgradedManaCost;
+      }
+      updateStatsDisplay(increments, derivedIncrements, speedRatio);
     }
 
-    function updateStatsDisplay(increments, derivedIncrements) {
+    function updateStatsDisplay(increments, derivedIncrements, speedRatio) {
       clearPanelIncrementSources('upgrade');
       clearPanelIncrementSources('derived');
 
-      if (Object.keys(increments).length === 0 && Object.keys(derivedIncrements).length === 0) {
+      if (Object.keys(increments).length === 0 && Object.keys(derivedIncrements).length === 0 && speedRatio === 1) {
         renderPanelIncrements();
         return;
       }
@@ -5555,6 +5589,18 @@ HVEA_SHARED.ui = {
         if (!enRow) continue;
         const liveItem = findLiveRowByEnglishRow(area, enRow);
         queueIncrement(liveItem, value, 'blue', enRow.name);
+      }
+
+      if (speedRatio !== 1) {
+        const burden = findEnglishPanelRow('compromise', 'Burden')?.value;
+        if (Number.isFinite(burden)) {
+          for (const section of ['mainhand', 'offhand']) {
+            const row = findEnglishPanelRow(section, 'Attack Speed Bonus');
+            if (!row) continue;
+            const diff = getBurdenPanelDelta(row.value, burden, burden, 'speed', speedRatio);
+            if (diff !== null) queueIncrement(findLiveRowByEnglishRow(section, row), diff, 'green', row.name);
+          }
+        }
       }
 
       for (const entry of pending.values()) {
@@ -6949,49 +6995,13 @@ HVEA_SHARED.ui = {
       };
     }
 
-    function getManaCostReductionFromCharms(charms, weaponClass, level, slot) {
-      return (charms || []).reduce((total, charm) => {
-        const effect = getCharmEffect(charm?.type, charm?.size, weaponClass, level, slot);
-        return total + Number(effect?.manaCostReduction || 0);
-      }, 0);
-    }
-
     function getCappedManaCostPanelDelta(slots, level, interference = 0, interferenceDelta = 0, slotKey = null) {
-      let actualReduction = 0;
-      let selectedReduction = 0;
-
-      CHARM_SLOT_KEYS.forEach(key => {
-        const slot = slots[key];
-        if (!slot) return;
-
-        const hasEquipmentManaCostStat = Boolean(getEquipmentStatForTitle(slot, 'Mana Cost'));
-        const rawReduction = hasEquipmentManaCostStat
-          ? getPureEquipmentStatValue(slot, 'Mana Cost', activeUpgradeSimulation?.state, [])
-          : 0;
-        if (!Number.isFinite(rawReduction)) return;
-
-        const weaponClass = resolveWeaponClass(slot);
-        const actualCharms = Array.isArray(charmState.actualCharms[key]) ? charmState.actualCharms[key] : [];
-        const selectedCharms = slotKey && key !== slotKey ? actualCharms : getSelectedCharmsForSlot(key);
-        const actualCharmReduction = getManaCostReductionFromCharms(actualCharms, weaponClass, level, slot);
-        const selectedCharmReduction = getManaCostReductionFromCharms(selectedCharms, weaponClass, level, slot);
-
-        if (hasEquipmentManaCostStat) {
-          actualReduction += rawReduction;
-          selectedReduction += rawReduction + selectedCharmReduction - actualCharmReduction;
-        } else {
-          actualReduction += actualCharmReduction;
-          selectedReduction += selectedCharmReduction;
-        }
-      });
-
-      // EHWiki: mana cost = (1 + interference * 0.5%) * (1 - conservation).
-      const modifier = (reduction, value) => {
-        const cost = 100 + Math.max(0, value) * 0.5;
-        return Math.max(-50, cost - 100 - cost * Math.min(100, Math.max(0, reduction)) / 100);
-      };
-      const actualModifier = modifier(actualReduction, interference);
-      const selectedModifier = modifier(selectedReduction, interference + interferenceDelta);
+      const entries = Object.entries(slots);
+      const levels = activeUpgradeSimulation?.state;
+      const actual = (_, key) => charmState.actualCharms[key] || [];
+      const selected = (slot, key) => slotKey && key !== slotKey ? actual(slot, key) : getSelectedCharmsForSlot(key);
+      const actualModifier = getManaCostModifier(entries, level, interference, levels, actual);
+      const selectedModifier = getManaCostModifier(entries, level, interference + interferenceDelta, levels, actual, selected);
       return selectedModifier - actualModifier;
     }
 
